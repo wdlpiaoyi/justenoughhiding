@@ -1,9 +1,14 @@
 package com.wdlpiaoyi.justenoughhiding.client.gui;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.wdlpiaoyi.justenoughhiding.client.gui.widget.Dropdown;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
 import com.wdlpiaoyi.justenoughhiding.intent.Intent;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentRegistry;
+import com.wdlpiaoyi.justenoughhiding.jei.JehJeiPlugin;
+import mezz.jei.api.constants.VanillaTypes;
+import mezz.jei.api.runtime.IJeiKeyMapping;
+import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -45,6 +50,8 @@ public final class IntentScreen extends Screen
 
     private String status = "";
     private long statusUntil;
+    private int lastMouseX;
+    private int lastMouseY;
 
     public IntentScreen()
     {
@@ -234,6 +241,9 @@ public final class IntentScreen extends Screen
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick)
     {
+        this.lastMouseX = mouseX;
+        this.lastMouseY = mouseY;
+
         Dropdown openDropdown = openDropdown();
         list.setHoverEnabled(openDropdown == null);
 
@@ -398,6 +408,47 @@ public final class IntentScreen extends Screen
     {
         list.mouseReleased();
         return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers)
+    {
+        if (addBookmarkUnderMouse(keyCode, scanCode))
+        {
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    private boolean addBookmarkUnderMouse(int keyCode, int scanCode)
+    {
+        IJeiRuntime runtime = JehJeiPlugin.getRuntime();
+        if (runtime == null)
+        {
+            return false;
+        }
+        IJeiKeyMapping bookmarkKey = runtime.getKeyMappings().getBookmark();
+        if (bookmarkKey == null || bookmarkKey.isUnbound()
+            || !bookmarkKey.isActiveAndMatches(InputConstants.getKey(keyCode, scanCode)))
+        {
+            return false;
+        }
+
+        Intent hovered = list.intentAtIcon(lastMouseX, lastMouseY);
+        if (hovered == null)
+        {
+            return false;
+        }
+        ItemStack stack = ItemIcons.resolve(hovered.target());
+        if (stack.isEmpty())
+        {
+            return false;
+        }
+
+        runtime.getIngredientManager().createTypedIngredient(VanillaTypes.ITEM_STACK, stack)
+            .ifPresent(typed -> runtime.getBookmarkManager().add(typed));
+        setStatus("Bookmarked: " + IntentFormat.targetText(hovered.target()));
+        return true;
     }
 
     private static boolean isOver(AbstractWidget widget, double mouseX, double mouseY)

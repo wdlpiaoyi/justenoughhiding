@@ -201,6 +201,17 @@ public final class IntentList implements Renderable
         return (index >= 0 && index < rows.size()) ? rows.get(index) : null;
     }
 
+    public Intent intentAtIcon(int mouseX, int mouseY)
+    {
+        int iconLeft = x + 1;
+        if (mouseX < iconLeft || mouseX >= iconLeft + 16 || mouseY < y || mouseY >= y + height)
+        {
+            return null;
+        }
+        int index = scroll + (int) ((mouseY - y) / ROW_HEIGHT);
+        return (index >= 0 && index < rows.size()) ? rows.get(index) : null;
+    }
+
     private int visibleRows()
     {
         return Math.max(1, height / ROW_HEIGHT);
