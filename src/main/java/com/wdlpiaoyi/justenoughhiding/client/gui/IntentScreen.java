@@ -81,10 +81,6 @@ public final class IntentScreen extends Screen
 
         copyLineButton = Button.builder(Component.literal("Copy Line"), b -> copy(false)).bounds(buttonX, TOP, 78, ROW_HEIGHT).build();
         addRenderableWidget(copyLineButton);
-        buttonX += 82;
-
-        Button closeButton = Button.builder(Component.literal("Close"), b -> onClose()).bounds(buttonX, TOP, 54, ROW_HEIGHT).build();
-        addRenderableWidget(closeButton);
 
         int dropdownY = TOP + ROW_HEIGHT + 4;
         List<String> sortOptions = JehConfig.sortModes();
@@ -97,6 +93,10 @@ public final class IntentScreen extends Screen
         dropdowns.add(sourceDropdown);
         dropdowns.add(kindDropdown);
         dropdowns.add(sortDropdown);
+
+        Button closeButton = Button.builder(Component.literal("Close"), b -> onClose())
+            .bounds(sortDropdown.getX() + 176, dropdownY, 54, ROW_HEIGHT).build();
+        addRenderableWidget(closeButton);
 
         int listTop = dropdownY + ROW_HEIGHT + 6;
         int listHeight = Math.max(20, this.height - MARGIN - listTop);
