@@ -1,0 +1,14 @@
+{
+  "required": false,
+  "minVersion": "0.8.5",
+  "package": "com.wdlpiaoyi.justenoughhiding.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "plugin": "com.wdlpiaoyi.justenoughhiding.mixin.JehMixinPlugin",
+  "refmap": "justenoughhiding.refmap.json",
+  "client": [
+    "jei.IngredientVisibilityMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

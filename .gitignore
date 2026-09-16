@@ -1,0 +1,33 @@
+# eclipse
+bin
+*.launch
+.settings
+.metadata
+.classpath
+.project
+
+# idea
+out
+*.ipr
+*.iws
+*.iml
+.idea
+
+# gradle
+build
+.gradle
+
+# other
+eclipse
+run
+run-data
+*.log
+
+# data generator cache
+src/generated/resources/.cache/
+
+# third-party reference material (not tracked)
+reference/
+
+# Files from Forge MDK
+forge*changelog.txt
