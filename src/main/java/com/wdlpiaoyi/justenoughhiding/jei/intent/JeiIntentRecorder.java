@@ -189,9 +189,9 @@ public final class JeiIntentRecorder
         }
     }
 
-    public static void recordRecipe(ResourceLocation recipeTypeUid, Object recipe, IntentKind kind)
+    public static void recordRecipe(ResourceLocation recipeTypeUid, String recipeId, IntentKind kind)
     {
-        if (skip() || recipeTypeUid == null || recipe == null)
+        if (skip() || recipeTypeUid == null || recipeId == null)
         {
             return;
         }
@@ -200,7 +200,7 @@ public final class JeiIntentRecorder
         {
             return;
         }
-        IntentRegistry.record(IntentTarget.of(recipeTypeUid, String.valueOf(recipe)), kind, source);
+        IntentRegistry.record(IntentTarget.of(recipeTypeUid, recipeId), kind, source);
     }
 
     public static void recordRecipeCategory(ResourceLocation recipeTypeUid, IntentKind kind)
