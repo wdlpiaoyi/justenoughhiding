@@ -332,6 +332,7 @@ public final class HidingListScreen extends Screen
         int index = ListEHiding.get().indexOf(entry);
         ListEHiding.get().set(index, new ListEHidingEntry(entry.target(), !entry.enabled(), entry.note(), entry.priority()));
         apply();
+        JeHide.reapply();
     }
 
     private void delete(ListEHidingEntry entry)
