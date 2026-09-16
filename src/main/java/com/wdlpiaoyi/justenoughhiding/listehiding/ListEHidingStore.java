@@ -18,7 +18,7 @@ import java.util.List;
 
 /**
  * Loads and saves {@link ListEHidingEntry} entries as JSON at
- * {@code config/justenoughhiding/listehiding.json}.
+ * {@code config/jeh/listehiding.json}.
  * <p>
  * The mod never generates data by itself; the file is edited externally.
  */
@@ -32,7 +32,7 @@ public final class ListEHidingStore
 
     public static Path file()
     {
-        return FMLPaths.CONFIGDIR.get().resolve("justenoughhiding").resolve("listehiding.json");
+        return FMLPaths.CONFIGDIR.get().resolve("jeh").resolve("listehiding.json");
     }
 
     public static List<ListEHidingEntry> load()

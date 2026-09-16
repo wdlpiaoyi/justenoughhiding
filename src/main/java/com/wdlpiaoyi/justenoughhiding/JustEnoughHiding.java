@@ -20,7 +20,7 @@ public final class JustEnoughHiding
     {
         IEventBus modEventBus = context.getModEventBus();
 
-        context.registerConfig(ModConfig.Type.CLIENT, JehConfig.SPEC);
+        context.registerConfig(ModConfig.Type.CLIENT, JehConfig.SPEC, "jeh/client.toml");
         modEventBus.addListener((ModConfigEvent.Loading event) -> onConfigChanged(event));
         modEventBus.addListener((ModConfigEvent.Reloading event) -> onConfigChanged(event));
 

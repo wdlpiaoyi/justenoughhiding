@@ -35,7 +35,7 @@ public final class HidingListScreen extends Screen
         ViewerAdapter adapter = Adapters.active();
 
         Button refreshButton = Button.builder(Component.literal("Refresh"), b -> refresh())
-            .tooltip(Tooltip.create(Component.literal("Re-read config/justenoughhiding/listehiding.json")))
+            .tooltip(Tooltip.create(Component.literal("Re-read config/jeh/listehiding.json")))
             .bounds(MARGIN, TOP, 60, ROW_HEIGHT).build();
         addRenderableWidget(refreshButton);
 

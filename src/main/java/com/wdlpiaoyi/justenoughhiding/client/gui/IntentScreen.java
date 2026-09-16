@@ -108,7 +108,7 @@ public final class IntentScreen extends Screen
             .tooltip(Component.literal("Filter by intent kind (REMOVED, HIDDEN, ABSENT_FROM_JEI, ...)"));
         sortDropdown = new Dropdown(this.font, MARGIN + 322, dropdownY, 170, ROW_HEIGHT,
             sortOptions, sortOptions.get(0), value -> apply())
-            .tooltip(Component.literal("Sort order. Add your own in config/justenoughhiding-client.toml under [intentView] sortModes"));
+            .tooltip(Component.literal("Sort order. Add your own in config/jeh/client.toml under [intentView] sortModes"));
         dropdowns.add(sourceDropdown);
         dropdowns.add(kindDropdown);
         dropdowns.add(sortDropdown);
