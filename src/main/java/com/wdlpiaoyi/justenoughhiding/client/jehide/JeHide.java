@@ -21,6 +21,7 @@ import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.Recipe;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -91,25 +92,56 @@ public final class JeHide
     }
 
     /**
-     * JEI caches its ingredient list, and hide/unhide does not invalidate it, so a deleted or
-     * disabled entry would stay hidden until a manual reload. Nudging the filter text forces a
-     * rebuild (set and restore), making both hiding and restoring take effect immediately.
+     * JEI caches its ingredient list. {@code hideIngredients}/{@code unhideIngredients} do not
+     * always re-evaluate it, so a deleted/disabled entry would stay hidden until a manual reload.
+     * Reach the internal filter and ask it to recompute hidden state (it calls isIngredientVisible,
+     * which our visibility mixin controls) and drop its cache.
      */
     private static void refreshIngredientFilter(IJeiRuntime runtime)
     {
         try
         {
-            IIngredientFilter filter = runtime.getIngredientFilter();
-            String base = filter.getFilterText();
-            if (base == null)
+            IIngredientFilter api = runtime.getIngredientFilter();
+            Object internal = api;
+            try
             {
-                base = "";
+                Field field = api.getClass().getDeclaredField("ingredientFilter");
+                field.setAccessible(true);
+                internal = field.get(api);
             }
-            filter.setFilterText(base + " ");
-            filter.setFilterText(base);
+            catch (Throwable ignored)
+            {
+            }
+
+            boolean refreshed = invokeNoArg(internal, "updateHidden");
+            refreshed |= invokeNoArg(internal, "invalidateCache");
+            if (!refreshed)
+            {
+                // Last resort: nudge the filter text so JEI rebuilds the list itself.
+                String base = api.getFilterText();
+                api.setFilterText((base == null ? "" : base) + " ");
+                api.setFilterText(base == null ? "" : base);
+            }
         }
         catch (Throwable ignored)
         {
+        }
+    }
+
+    private static boolean invokeNoArg(Object target, String method)
+    {
+        if (target == null)
+        {
+            return false;
+        }
+        try
+        {
+            target.getClass().getMethod(method).invoke(target);
+            return true;
+        }
+        catch (Throwable ignored)
+        {
+            return false;
         }
     }
 
