@@ -18,6 +18,7 @@ import mezz.jei.api.runtime.IIngredientFilter;
 import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.api.runtime.IIngredientVisibility;
 import mezz.jei.api.runtime.IJeiRuntime;
+import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.Recipe;
 
@@ -117,10 +118,22 @@ public final class JeHide
             refreshed |= invokeNoArg(internal, "invalidateCache");
             if (!refreshed)
             {
-                // Last resort: nudge the filter text so JEI rebuilds the list itself.
-                String base = api.getFilterText();
-                api.setFilterText((base == null ? "" : base) + " ");
-                api.setFilterText(base == null ? "" : base);
+                reloadClientResources();
+            }
+        }
+        catch (Throwable ignored)
+        {
+        }
+    }
+
+    private static void reloadClientResources()
+    {
+        try
+        {
+            Minecraft minecraft = Minecraft.getInstance();
+            if (minecraft != null)
+            {
+                minecraft.reloadResourcePacks();
             }
         }
         catch (Throwable ignored)

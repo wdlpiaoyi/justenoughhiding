@@ -270,6 +270,7 @@ public final class HidingListScreen extends Screen
         commitEdit();
         disarmRefresh();
         ListEHiding.get().saveIfDirty();
+        JeHide.reapply();
         setStatus("Saved");
     }
 
@@ -332,7 +333,6 @@ public final class HidingListScreen extends Screen
         int index = ListEHiding.get().indexOf(entry);
         ListEHiding.get().set(index, new ListEHidingEntry(entry.target(), !entry.enabled(), entry.note(), entry.priority()));
         apply();
-        JeHide.reapply();
     }
 
     private void delete(ListEHidingEntry entry)
@@ -341,7 +341,6 @@ public final class HidingListScreen extends Screen
         ListEHiding.get().remove(index);
         kindDropdown.setOptions(kindOptions());
         apply();
-        JeHide.reapply();
     }
 
     private void startNoteEdit(ListEHidingEntry entry)
@@ -623,7 +622,6 @@ public final class HidingListScreen extends Screen
         ListEHiding.get().set(index, replacement);
         kindDropdown.setOptions(kindOptions());
         apply();
-        JeHide.reapply();
     }
 
     private static IntentTarget parseTarget(String id, String kindKey)
@@ -921,6 +919,7 @@ public final class HidingListScreen extends Screen
     {
         commitEdit();
         ListEHiding.get().saveIfDirty();
+        JeHide.reapply();
         super.onClose();
     }
 
