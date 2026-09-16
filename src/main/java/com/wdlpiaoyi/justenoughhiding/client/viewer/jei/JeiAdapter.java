@@ -6,6 +6,7 @@ import com.wdlpiaoyi.justenoughhiding.client.gui.column.Column;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.DefaultColumns;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.IconRenderer;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.ViewerAdapter;
+import com.wdlpiaoyi.justenoughhiding.intent.IngredientKey;
 import com.wdlpiaoyi.justenoughhiding.intent.Intent;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentRegistry;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
@@ -103,6 +104,22 @@ public final class JeiAdapter implements ViewerAdapter
         {
             return false;
         }
+    }
+
+    @Override
+    public IntentTarget ingredientTarget(String uid)
+    {
+        if (uid == null || uid.isBlank())
+        {
+            return null;
+        }
+        int brace = uid.indexOf('{');
+        ResourceLocation id = ResourceLocation.tryParse(brace >= 0 ? uid.substring(0, brace) : uid);
+        if (id == null)
+        {
+            return null;
+        }
+        return IntentTarget.of(IngredientKey.of(VanillaTypes.ITEM_STACK.getUid(), uid));
     }
 
     @Override

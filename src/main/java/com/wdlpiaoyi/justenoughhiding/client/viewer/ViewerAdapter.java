@@ -32,6 +32,16 @@ public interface ViewerAdapter
 
     boolean bookmark(IntentTarget target);
 
+    /**
+     * Builds an ingredient target from raw user text, e.g. {@code "minecraft:stone"} or
+     * {@code "minecraft:stone{Enchantments:[{}]}"}. Returns {@code null} when the text cannot
+     * be understood, so the GUI can stay independent of any viewer's ingredient types.
+     */
+    default IntentTarget ingredientTarget(String uid)
+    {
+        return null;
+    }
+
     // ---- lifecycle / management (reveal here, hide later, EMI later) ----
 
     default void onRuntimeAvailable(Object runtime)

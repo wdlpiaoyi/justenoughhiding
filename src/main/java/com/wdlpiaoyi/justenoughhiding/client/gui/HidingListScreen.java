@@ -6,6 +6,7 @@ import com.wdlpiaoyi.justenoughhiding.client.gui.widget.PopupMenu;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.Adapters;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.IconRenderer;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.ViewerAdapter;
+import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import com.wdlpiaoyi.justenoughhiding.listehiding.ListEHiding;
 import com.wdlpiaoyi.justenoughhiding.listehiding.ListEHidingEntry;
 import net.minecraft.client.gui.GuiGraphics;
@@ -16,6 +17,7 @@ import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -29,13 +31,15 @@ public final class HidingListScreen extends Screen
     private static final int MARGIN = 8;
     private static final int ROW_HEIGHT = 20;
     private static final int TOP = 32;
+    private static final int TARGET_COLUMN = 1;
     private static final int NOTE_COLUMN = 3;
     private static final String[] SORT_MODES = {"target", "enabled", "note", "kind"};
+    private static final String TARGET_HINT = "Target: item <id> | recipe <type> <id> | category <type> | unset";
 
     private final List<Dropdown> dropdowns = new ArrayList<>();
 
     private RowList<ListEHidingEntry> list;
-    private EditBox noteEditor;
+    private EditBox inlineEditor;
     private EditBox search;
     private Dropdown kindDropdown;
     private Dropdown stateDropdown;
@@ -46,6 +50,7 @@ public final class HidingListScreen extends Screen
     private boolean descending;
 
     private ListEHidingEntry editingEntry;
+    private int editingColumn = -1;
     private PopupMenu menu;
     private int menuX;
     private int menuY;
@@ -130,10 +135,10 @@ public final class HidingListScreen extends Screen
         list.setRightClickListener(this::openMenu);
         addRenderableOnly(list);
 
-        noteEditor = new EditBox(this.font, 0, 0, 10, ROW_HEIGHT, Component.literal("Note"));
-        noteEditor.setMaxLength(256);
-        noteEditor.visible = false;
-        addRenderableWidget(noteEditor);
+        inlineEditor = new EditBox(this.font, 0, 0, 10, ROW_HEIGHT, Component.literal("Edit"));
+        inlineEditor.setMaxLength(256);
+        inlineEditor.visible = false;
+        addRenderableWidget(inlineEditor);
 
         apply();
     }
@@ -218,7 +223,7 @@ public final class HidingListScreen extends Screen
 
     private void newEntry()
     {
-        commitNoteEdit();
+        commitEdit();
         disarmRefresh();
         ListEHiding.get().add(ListEHiding.blankEntry());
         kindDropdown.setOptions(kindOptions());
@@ -227,7 +232,7 @@ public final class HidingListScreen extends Screen
 
     private void save()
     {
-        commitNoteEdit();
+        commitEdit();
         disarmRefresh();
         ListEHiding.get().saveIfDirty();
         setStatus("Saved");
@@ -243,7 +248,7 @@ public final class HidingListScreen extends Screen
         }
         refreshArmed = false;
         refreshButton.setMessage(Component.literal("Refresh"));
-        commitNoteEdit();
+        commitEdit();
         menu = null;
         ListEHiding.get().reload();
         kindDropdown.setOptions(kindOptions());
@@ -262,7 +267,7 @@ public final class HidingListScreen extends Screen
 
     private void openMenu(ListEHidingEntry entry, double mouseX, double mouseY)
     {
-        commitNoteEdit();
+        commitEdit();
         disarmRefresh();
         menuX = (int) mouseX;
         menuY = (int) mouseY;
@@ -273,8 +278,8 @@ public final class HidingListScreen extends Screen
     {
         List<PopupMenu.Item> items = new ArrayList<>();
         items.add(new PopupMenu.Item(entry.enabled() ? "Disable" : "Enable", 0xFFFFFFFF, () -> toggle(entry)));
+        items.add(new PopupMenu.Item("Edit target...", 0xFFFFFFFF, () -> startTargetEdit(entry)));
         items.add(new PopupMenu.Item("Edit note...", 0xFFFFFFFF, () -> startNoteEdit(entry)));
-        items.add(new PopupMenu.Item("Edit target... (not implemented)", 0xFF808080, () -> { }));
         items.add(new PopupMenu.Item("Delete", 0xFFFF7070, () -> showDeleteConfirm(entry)));
         menu = PopupMenu.at(this.font, menuX, menuY, 190, items);
     }
@@ -302,47 +307,130 @@ public final class HidingListScreen extends Screen
 
     private void startNoteEdit(ListEHidingEntry entry)
     {
+        startEdit(entry, NOTE_COLUMN, entry.note());
+    }
+
+    private void startTargetEdit(ListEHidingEntry entry)
+    {
+        startEdit(entry, TARGET_COLUMN, targetText(entry.target()));
+        setStatus(TARGET_HINT);
+    }
+
+    private void startEdit(ListEHidingEntry entry, int column, String initialValue)
+    {
         int viewIndex = list.indexOf(entry);
-        Rect2i cell = list.cellBounds(viewIndex, NOTE_COLUMN);
+        Rect2i cell = list.cellBounds(viewIndex, column);
         if (cell == null)
         {
             return;
         }
         editingEntry = entry;
-        noteEditor.setX(cell.getX());
-        noteEditor.setY(cell.getY());
-        noteEditor.setWidth(cell.getWidth());
-        noteEditor.setHeight(ROW_HEIGHT);
-        noteEditor.setValue(entry.note());
-        noteEditor.visible = true;
-        setFocused(noteEditor);
+        editingColumn = column;
+        inlineEditor.setX(cell.getX());
+        inlineEditor.setY(cell.getY());
+        inlineEditor.setWidth(cell.getWidth());
+        inlineEditor.setHeight(ROW_HEIGHT);
+        inlineEditor.setValue(initialValue);
+        inlineEditor.visible = true;
+        setFocused(inlineEditor);
     }
 
-    private void commitNoteEdit()
+    private void commitEdit()
     {
         if (editingEntry == null)
         {
             return;
         }
         ListEHidingEntry entry = editingEntry;
+        int column = editingColumn;
         editingEntry = null;
-        noteEditor.visible = false;
+        editingColumn = -1;
+        inlineEditor.visible = false;
         setFocused(null);
 
-        String text = noteEditor.getValue();
-        if (!text.equals(entry.note()))
+        String text = inlineEditor.getValue();
+        if (column == TARGET_COLUMN)
         {
-            int index = ListEHiding.get().indexOf(entry);
-            ListEHiding.get().set(index, new ListEHidingEntry(entry.target(), entry.enabled(), text));
-            apply();
+            IntentTarget parsed = parseTarget(text);
+            if (parsed == null)
+            {
+                setStatus("Invalid target: " + text);
+                return;
+            }
+            replace(entry, new ListEHidingEntry(parsed, entry.enabled(), entry.note()));
+        }
+        else if (!text.equals(entry.note()))
+        {
+            replace(entry, new ListEHidingEntry(entry.target(), entry.enabled(), text));
         }
     }
 
-    private void cancelNoteEdit()
+    private void cancelEdit()
     {
         editingEntry = null;
-        noteEditor.visible = false;
+        editingColumn = -1;
+        inlineEditor.visible = false;
         setFocused(null);
+    }
+
+    private void replace(ListEHidingEntry entry, ListEHidingEntry replacement)
+    {
+        int index = ListEHiding.get().indexOf(entry);
+        ListEHiding.get().set(index, replacement);
+        kindDropdown.setOptions(kindOptions());
+        apply();
+    }
+
+    private static String targetText(IntentTarget target)
+    {
+        if (target instanceof IntentTarget.Recipe recipe)
+        {
+            return "recipe " + recipe.recipeType() + " " + recipe.recipeId();
+        }
+        if (target instanceof IntentTarget.RecipeCategory category)
+        {
+            return "category " + category.recipeType();
+        }
+        if (target instanceof IntentTarget.Ingredient ingredient)
+        {
+            return "item " + ingredient.key().uid();
+        }
+        return "";
+    }
+
+    private static IntentTarget parseTarget(String raw)
+    {
+        String text = raw.trim();
+        if (text.isEmpty() || text.equalsIgnoreCase("unset"))
+        {
+            return IntentTarget.unset();
+        }
+
+        String lower = text.toLowerCase(Locale.ROOT);
+        if (lower.startsWith("category "))
+        {
+            ResourceLocation type = ResourceLocation.tryParse(text.substring("category ".length()).trim());
+            return type == null ? null : IntentTarget.category(type);
+        }
+        if (lower.startsWith("recipe "))
+        {
+            String rest = text.substring("recipe ".length()).trim();
+            int separator = rest.indexOf(' ');
+            if (separator <= 0)
+            {
+                return null;
+            }
+            ResourceLocation type = ResourceLocation.tryParse(rest.substring(0, separator).trim());
+            String recipeId = rest.substring(separator + 1).trim();
+            if (type == null || recipeId.isEmpty())
+            {
+                return null;
+            }
+            return IntentTarget.of(type, recipeId);
+        }
+
+        String uid = lower.startsWith("item ") ? text.substring("item ".length()).trim() : text;
+        return Adapters.active().ingredientTarget(uid);
     }
 
     private void setStatus(String message)
@@ -459,9 +547,9 @@ public final class HidingListScreen extends Screen
             return true;
         }
 
-        if (editingEntry != null && !isOver(noteEditor, mouseX, mouseY))
+        if (editingEntry != null && !isOver(inlineEditor, mouseX, mouseY))
         {
-            commitNoteEdit();
+            commitEdit();
         }
 
         for (Dropdown dropdown : dropdowns)
@@ -499,12 +587,12 @@ public final class HidingListScreen extends Screen
         {
             if (keyCode == GLFW.GLFW_KEY_ESCAPE)
             {
-                cancelNoteEdit();
+                cancelEdit();
                 return true;
             }
             if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)
             {
-                commitNoteEdit();
+                commitEdit();
                 return true;
             }
         }
@@ -557,7 +645,7 @@ public final class HidingListScreen extends Screen
     @Override
     public void onClose()
     {
-        commitNoteEdit();
+        commitEdit();
         ListEHiding.get().saveIfDirty();
         super.onClose();
     }
