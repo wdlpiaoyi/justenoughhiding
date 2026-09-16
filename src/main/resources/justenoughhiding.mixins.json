@@ -6,7 +6,7 @@
   "plugin": "com.wdlpiaoyi.justenoughhiding.mixin.JehMixinPlugin",
   "refmap": "justenoughhiding.refmap.json",
   "client": [
-    "jei.IngredientVisibilityMixin"
+    "jei.RevealMixin"
   ],
   "injectors": {
     "defaultRequire": 1

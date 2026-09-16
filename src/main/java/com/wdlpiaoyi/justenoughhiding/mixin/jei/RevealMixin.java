@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Pseudo
 @Mixin(targets = "mezz.jei.library.ingredients.IngredientVisibility", remap = false)
-public class IngredientVisibilityMixin
+public class RevealMixin
 {
     @Inject(
         method = "isIngredientVisible(Lmezz/jei/api/ingredients/ITypedIngredient;Lmezz/jei/api/ingredients/IIngredientHelper;Lmezz/jei/api/ingredients/subtypes/UidContext;)Z",
@@ -19,7 +19,7 @@ public class IngredientVisibilityMixin
         cancellable = true,
         remap = false
     )
-    private void jeh$forceVisible(ITypedIngredient<?> typedIngredient, IIngredientHelper<?> ingredientHelper, UidContext context, CallbackInfoReturnable<Boolean> cir)
+    private void jeh$reveal(ITypedIngredient<?> typedIngredient, IIngredientHelper<?> ingredientHelper, UidContext context, CallbackInfoReturnable<Boolean> cir)
     {
         cir.setReturnValue(Boolean.TRUE);
     }
