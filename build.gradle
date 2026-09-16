@@ -130,6 +130,16 @@ repositories {
         url = 'https://maven.blamejared.com'
     }
 
+    // KubeJS + its dependencies are published to the Latvian and Architectury mavens
+    maven {
+        name = 'Latvian'
+        url = 'https://maven.latvian.dev/releases'
+    }
+    maven {
+        name = 'Architectury'
+        url = 'https://maven.architectury.dev'
+    }
+
     // If you have mod jar dependencies in ./libs, you can declare them as a repository like so.
     // See https://docs.gradle.org/current/userguide/declaring_repositories.html#sub:flat_dir_resolver
     // flatDir {
@@ -155,6 +165,11 @@ dependencies {
     // JEI at runtime is optional. Pass -PnoJei to run/test without JEI installed.
     if (!project.hasProperty('noJei')) {
         runtimeOnly fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}")
+    }
+
+    // KubeJS integration is optional. Pass -PnoKubeJS to build without it.
+    if (!project.hasProperty('noKubeJS')) {
+        compileOnly fg.deobf("dev.latvian.mods:kubejs-forge:${kubejs_version}")
     }
 
     // Example mod dependency using a mod jar from ./libs with a flat dir repository

@@ -1,0 +1,1 @@
+com.wdlpiaoyi.justenoughhiding.integration.kubejs.JehKubeJSPlugin client
