@@ -1,5 +1,7 @@
 package com.wdlpiaoyi.justenoughhiding.client.viewer.jei;
 
+import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetKeys;
+import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetMatcher;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetSuggestion;
 import com.wdlpiaoyi.justenoughhiding.intent.IngredientKey;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
@@ -34,6 +36,8 @@ import java.util.TreeSet;
  */
 final class JeiTargetIndex
 {
+    private static final int MATCH_CAP = 1000;
+
     private record Entry(IntentTarget target, String kindKey, String id, String label, String search)
     {
     }
@@ -114,11 +118,16 @@ final class JeiTargetIndex
         {
             return List.of();
         }
+        String trimmedQuery = query.trim();
+        if (TargetKeys.isPattern(trimmedQuery))
+        {
+            return patternSuggestions(trimmedQuery, kind, limit);
+        }
         if ("tag".equals(kind))
         {
             ensureTags();
         }
-        String q = query.trim().toLowerCase(Locale.ROOT);
+        String q = trimmedQuery.toLowerCase(Locale.ROOT);
         boolean filterKind = kind != null && !kind.isBlank();
 
         List<Entry> matches = new ArrayList<>();
@@ -141,6 +150,60 @@ final class JeiTargetIndex
         {
             Entry entry = matches.get(i);
             result.add(new TargetSuggestion(entry.target(), entry.label(), entry.id()));
+        }
+        return result;
+    }
+
+    private List<TargetSuggestion> patternSuggestions(String query, String kind, int limit)
+    {
+        IntentTarget target = IntentTarget.pattern(kind == null ? "" : kind,
+            TargetKeys.patternBody(query), TargetKeys.modeOf(query));
+        IntentTarget.Pattern pattern = (IntentTarget.Pattern) target;
+        if (TargetMatcher.compile(pattern) == null)
+        {
+            return List.of();
+        }
+        int count = matches(pattern, MATCH_CAP).size();
+        String suffix = count >= MATCH_CAP ? "+" : "";
+        String label = "pattern: " + pattern.describe() + " (" + count + suffix + " matches)";
+        return List.of(new TargetSuggestion(target, label, query));
+    }
+
+    List<TargetSuggestion> matches(IntentTarget target, int limit)
+    {
+        if (!(target instanceof IntentTarget.Pattern pattern) || limit <= 0)
+        {
+            return List.of();
+        }
+        if ("tag".equals(pattern.scope()))
+        {
+            ensureTags();
+        }
+        java.util.regex.Pattern compiled = TargetMatcher.compile(pattern);
+        if (compiled == null)
+        {
+            return List.of();
+        }
+
+        List<TargetSuggestion> result = new ArrayList<>();
+        for (Entry entry : entries)
+        {
+            if (entry.target() instanceof IntentTarget.Pattern)
+            {
+                continue;
+            }
+            if (!pattern.scope().isEmpty() && !pattern.scope().equals(entry.kindKey()))
+            {
+                continue;
+            }
+            if (compiled.matcher(entry.id()).matches())
+            {
+                result.add(new TargetSuggestion(entry.target(), entry.label(), entry.id()));
+                if (result.size() >= limit)
+                {
+                    break;
+                }
+            }
         }
         return result;
     }

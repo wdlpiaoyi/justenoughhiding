@@ -6,6 +6,8 @@ import com.wdlpiaoyi.justenoughhiding.client.gui.column.Column;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.DefaultColumns;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.IconRenderer;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetKind;
+import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetKeys;
+import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetMatcher;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetSuggestion;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.ViewerAdapter;
 import com.wdlpiaoyi.justenoughhiding.intent.IngredientKey;
@@ -236,6 +238,12 @@ public final class JeiAdapter implements ViewerAdapter
     }
 
     @Override
+    public List<TargetSuggestion> matches(IntentTarget pattern, int limit)
+    {
+        return index().matches(pattern, limit);
+    }
+
+    @Override
     public IntentTarget ofKind(String kind, String id)
     {
         if (id == null || id.isBlank())
@@ -243,6 +251,12 @@ public final class JeiAdapter implements ViewerAdapter
             return null;
         }
         String value = id.trim();
+        if (TargetKeys.isPattern(value))
+        {
+            IntentTarget target = IntentTarget.pattern(kind == null ? "" : kind,
+                TargetKeys.patternBody(value), TargetKeys.modeOf(value));
+            return TargetMatcher.compile((IntentTarget.Pattern) target) == null ? null : target;
+        }
         if (kind == null || kind.isBlank())
         {
             return index().detect(value);

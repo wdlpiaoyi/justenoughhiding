@@ -6,6 +6,7 @@ import com.wdlpiaoyi.justenoughhiding.client.gui.widget.Dropdown;
 import com.wdlpiaoyi.justenoughhiding.client.gui.widget.PopupMenu;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.Adapters;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.IconRenderer;
+import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetKeys;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetKind;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetSuggestion;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.ViewerAdapter;
@@ -40,6 +41,7 @@ public final class HidingListScreen extends Screen
     private static final String[] SORT_MODES = {"target", "enabled", "note", "kind"};
     private static final String TARGET_HINT = "Type an id; pick a type tab (Auto detects the kind)";
     private static final int SUGGEST_LIMIT = 40;
+    private static final int MATCH_CAP = 1000;
 
     private final List<Dropdown> dropdowns = new ArrayList<>();
 
@@ -175,7 +177,7 @@ public final class HidingListScreen extends Screen
         TreeSet<String> values = new TreeSet<>();
         for (ListEHidingEntry entry : ListEHiding.get().entries())
         {
-            values.add(labels.getOrDefault(kindKeyOf(entry.target()), "Auto"));
+            values.add(labels.getOrDefault(TargetKeys.kindKey(entry.target()), "Auto"));
         }
         List<String> options = new ArrayList<>();
         options.add("All");
@@ -198,7 +200,7 @@ public final class HidingListScreen extends Screen
         List<ListEHidingEntry> view = new ArrayList<>();
         for (ListEHidingEntry entry : ListEHiding.get().entries())
         {
-            if (!"All".equals(kind) && !kind.equals(kindLabels.getOrDefault(kindKeyOf(entry.target()), "Auto")))
+            if (!"All".equals(kind) && !kind.equals(kindLabels.getOrDefault(TargetKeys.kindKey(entry.target()), "Auto")))
             {
                 continue;
             }
@@ -341,9 +343,9 @@ public final class HidingListScreen extends Screen
     private void startTargetEdit(ListEHidingEntry entry)
     {
         IntentTarget target = entry.target();
-        String id = targetId(target);
+        String id = TargetKeys.id(target);
         autocomplete.setKinds(Adapters.active().targetKinds());
-        int kindIndex = kindIndexFor(kindKeyOf(target));
+        int kindIndex = kindIndexFor(TargetKeys.kindKey(target));
         startEdit(entry, TARGET_COLUMN, id);
         autocomplete.setKindIndex(kindIndex);
         originalTarget = target;
@@ -553,6 +555,12 @@ public final class HidingListScreen extends Screen
                 return;
             }
             replace(entry, new ListEHidingEntry(parsed, entry.enabled(), entry.note()));
+            if (parsed instanceof IntentTarget.Pattern)
+            {
+                int count = Adapters.active().matches(parsed, MATCH_CAP).size();
+                setStatus(count == 0 ? "Pattern matches nothing"
+                    : "Pattern matches " + (count >= MATCH_CAP ? MATCH_CAP + "+" : String.valueOf(count)));
+            }
         }
         else if (!text.equals(entry.note()))
         {
@@ -577,42 +585,6 @@ public final class HidingListScreen extends Screen
         ListEHiding.get().set(index, replacement);
         kindDropdown.setOptions(kindOptions());
         apply();
-    }
-
-    private static String targetId(IntentTarget target)
-    {
-        if (target instanceof IntentTarget.Recipe recipe)
-        {
-            return recipe.recipeId();
-        }
-        if (target instanceof IntentTarget.RecipeCategory category)
-        {
-            return category.recipeType().toString();
-        }
-        if (target instanceof IntentTarget.Tag tag)
-        {
-            return tag.tagId();
-        }
-        if (target instanceof IntentTarget.Ingredient ingredient)
-        {
-            return ingredient.key().uid();
-        }
-        return "";
-    }
-
-    private static String kindKeyOf(IntentTarget target)
-    {
-        if (target instanceof IntentTarget.Ingredient ingredient)
-        {
-            return "ingredient|" + ingredient.key().typeUid();
-        }
-        return switch (target.kind())
-        {
-            case "recipe" -> "recipe";
-            case "recipe_category" -> "recipe_category";
-            case "tag" -> "tag";
-            default -> "";
-        };
     }
 
     private static IntentTarget parseTarget(String id, String kindKey)

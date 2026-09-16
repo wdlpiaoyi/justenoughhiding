@@ -108,6 +108,38 @@ public sealed interface IntentTarget
         }
     }
 
+    /** How a {@link Pattern} is interpreted. */
+    enum MatchMode
+    {
+        GLOB,
+        REGEX
+    }
+
+    /**
+     * A wildcard or regex rule matching many concrete targets. {@code scope} is a target kind
+     * key (blank means "any kind"); {@code pattern} is the glob/regex body.
+     */
+    record Pattern(String scope, String pattern, MatchMode mode) implements IntentTarget
+    {
+        @Override
+        public String kind()
+        {
+            return "pattern";
+        }
+
+        @Override
+        public String describe()
+        {
+            return mode == MatchMode.REGEX ? "~" + pattern : pattern;
+        }
+
+        @Override
+        public String copyText()
+        {
+            return describe();
+        }
+    }
+
     /** Placeholder used by freshly created list entries until a real target is set. */
     record Unset() implements IntentTarget
     {
@@ -142,6 +174,11 @@ public sealed interface IntentTarget
     static IntentTarget tag(String tagId)
     {
         return new Tag(tagId);
+    }
+
+    static IntentTarget pattern(String scope, String pattern, MatchMode mode)
+    {
+        return new Pattern(scope == null ? "" : scope, pattern, mode);
     }
 
     static IntentTarget unset()

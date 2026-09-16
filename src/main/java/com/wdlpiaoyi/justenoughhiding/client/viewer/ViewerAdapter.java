@@ -83,6 +83,15 @@ public interface ViewerAdapter
         return null;
     }
 
+    /**
+     * Concrete targets matched by a {@link IntentTarget.Pattern}, capped at {@code limit}.
+     * Used to preview match counts and (later) to apply patterns.
+     */
+    default List<TargetSuggestion> matches(IntentTarget pattern, int limit)
+    {
+        return List.of();
+    }
+
     // ---- lifecycle / management (reveal here, hide later, EMI later) ----
 
     default void onRuntimeAvailable(Object runtime)

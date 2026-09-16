@@ -113,6 +113,16 @@ public final class ListEHidingStore
                 yield type != null ? IntentTarget.category(type) : null;
             }
             case "tag" -> dto.tag == null || dto.tag.isBlank() ? null : IntentTarget.tag(dto.tag);
+            case "pattern" -> {
+                if (dto.pattern == null || dto.pattern.isBlank())
+                {
+                    yield null;
+                }
+                IntentTarget.MatchMode mode = "regex".equalsIgnoreCase(dto.mode)
+                    ? IntentTarget.MatchMode.REGEX
+                    : IntentTarget.MatchMode.GLOB;
+                yield IntentTarget.pattern(dto.scope == null ? "" : dto.scope, dto.pattern, mode);
+            }
             case "unset" -> IntentTarget.unset();
             default -> null;
         };
@@ -145,6 +155,12 @@ public final class ListEHidingStore
         {
             dto.tag = tag.tagId();
         }
+        else if (entry.target() instanceof IntentTarget.Pattern pattern)
+        {
+            dto.pattern = pattern.pattern();
+            dto.mode = pattern.mode() == IntentTarget.MatchMode.REGEX ? "regex" : "glob";
+            dto.scope = pattern.scope();
+        }
         dto.enabled = entry.enabled();
         dto.note = entry.note();
         return dto;
@@ -163,6 +179,9 @@ public final class ListEHidingStore
         private String recipeType;
         private String recipeId;
         private String tag;
+        private String pattern;
+        private String mode;
+        private String scope;
         private Boolean enabled;
         private String note;
     }
