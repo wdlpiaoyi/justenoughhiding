@@ -55,6 +55,7 @@ public final class IntentScreen extends Screen
         all.addAll(IntentRegistry.query().all());
 
         search = new EditBox(this.font, MARGIN, TOP, Math.min(220, Math.max(120, this.width / 3)), ROW_HEIGHT, Component.literal("Search"));
+        search.setHint(Component.literal("Search (kind / source / target)"));
         search.setResponder(value -> apply());
         addRenderableWidget(search);
 
@@ -101,11 +102,6 @@ public final class IntentScreen extends Screen
         list = new IntentList(this.font);
         list.setBounds(MARGIN, listTop, this.width - MARGIN * 2, listHeight);
         addRenderableOnly(list);
-
-        for (Dropdown dropdown : dropdowns)
-        {
-            addRenderableOnly(dropdown);
-        }
 
         apply();
     }
@@ -222,9 +218,38 @@ public final class IntentScreen extends Screen
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick)
     {
+        Dropdown openDropdown = openDropdown();
+        int renderMouseX = openDropdown == null ? mouseX : -1;
+        int renderMouseY = openDropdown == null ? mouseY : -1;
+
         this.renderBackground(guiGraphics);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, renderMouseX, renderMouseY, partialTick);
+
+        for (Dropdown dropdown : dropdowns)
+        {
+            if (dropdown != openDropdown)
+            {
+                dropdown.render(guiGraphics, mouseX, mouseY, partialTick);
+            }
+        }
+        if (openDropdown != null)
+        {
+            openDropdown.render(guiGraphics, mouseX, mouseY, partialTick);
+        }
+
         drawHeader(guiGraphics, mouseX, mouseY);
+    }
+
+    private Dropdown openDropdown()
+    {
+        for (Dropdown dropdown : dropdowns)
+        {
+            if (dropdown.isOpen())
+            {
+                return dropdown;
+            }
+        }
+        return null;
     }
 
     private void drawHeader(GuiGraphics guiGraphics, int mouseX, int mouseY)
@@ -240,7 +265,7 @@ public final class IntentScreen extends Screen
             guiGraphics.drawString(this.font, this.status, this.width - MARGIN - this.font.width(this.status), 8, 0xFFFFE080, false);
         }
 
-        Intent hovered = list.intentAt(mouseX, mouseY);
+        Intent hovered = openDropdown() == null ? list.intentAt(mouseX, mouseY) : null;
         if (hovered != null)
         {
             this.setTooltipForNextRenderPass(List.of(
@@ -275,12 +300,24 @@ public final class IntentScreen extends Screen
             updateButtons();
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        boolean handled = super.mouseClicked(mouseX, mouseY, button);
+        if (handled && getFocused() instanceof Button)
+        {
+            setFocused(null);
+        }
+        return handled;
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta)
     {
+        for (Dropdown dropdown : dropdowns)
+        {
+            if (dropdown.isOpen() && dropdown.mouseScrolled(mouseX, mouseY, delta))
+            {
+                return true;
+            }
+        }
         for (Dropdown dropdown : dropdowns)
         {
             dropdown.close();

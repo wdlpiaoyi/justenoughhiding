@@ -1,5 +1,6 @@
 package com.wdlpiaoyi.justenoughhiding.client.gui.widget;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
@@ -10,6 +11,8 @@ import java.util.function.Consumer;
 public final class Dropdown implements Renderable
 {
     private static final int OPTION_HEIGHT = 12;
+    private static final int MIN_VISIBLE = 1;
+    private static final int SCREEN_MARGIN = 4;
 
     private final Font font;
     private final Consumer<String> onSelect;
@@ -21,6 +24,7 @@ public final class Dropdown implements Renderable
     private List<String> options;
     private String value;
     private boolean open;
+    private int scroll;
 
     public Dropdown(Font font, int x, int y, int width, int height, List<String> options, String initial, Consumer<String> onSelect)
     {
@@ -52,6 +56,7 @@ public final class Dropdown implements Renderable
     public void close()
     {
         open = false;
+        scroll = 0;
     }
 
     public void setOptions(List<String> newOptions)
@@ -61,6 +66,7 @@ public final class Dropdown implements Renderable
         {
             this.value = this.options.isEmpty() ? "" : this.options.get(0);
         }
+        this.scroll = clampScroll(this.scroll);
     }
 
     public void setValue(String newValue)
@@ -79,16 +85,47 @@ public final class Dropdown implements Renderable
         guiGraphics.fill(x, y, x + width, y + height, hovered ? 0xFF4A4A8A : 0xC0202040);
         guiGraphics.drawString(font, fit(value), x + 4, y + (height - 8) / 2, 0xFFFFFFFF, false);
 
-        if (open)
+        if (!open)
         {
-            for (int i = 0; i < options.size(); i++)
-            {
-                int optionY = y + height + i * OPTION_HEIGHT;
-                boolean optionHovered = isOver(mouseX, mouseY, x, optionY, width, OPTION_HEIGHT);
-                guiGraphics.fill(x, optionY, x + width, optionY + OPTION_HEIGHT, optionHovered ? 0xFF3050A0 : 0xE0101030);
-                guiGraphics.drawString(font, fit(options.get(i)), x + 4, optionY + 2, 0xFFFFFFFF, false);
-            }
+            return;
         }
+
+        int visible = visibleOptions();
+        int popupTop = y + height;
+        int popupBottom = popupTop + visible * OPTION_HEIGHT;
+        guiGraphics.fill(x, popupTop, x + width, popupBottom, 0xE0101030);
+
+        for (int i = 0; i < visible; i++)
+        {
+            int index = scroll + i;
+            if (index >= options.size())
+            {
+                break;
+            }
+            int optionY = popupTop + i * OPTION_HEIGHT;
+            if (isOver(mouseX, mouseY, x, optionY, width, OPTION_HEIGHT))
+            {
+                guiGraphics.fill(x + 1, optionY, x + width - 1, optionY + OPTION_HEIGHT, 0xFF3050A0);
+            }
+            guiGraphics.drawString(font, fit(options.get(index)), x + 4, optionY + 2, 0xFFFFFFFF, false);
+        }
+
+        drawPopupScrollbar(guiGraphics, popupTop, visible);
+    }
+
+    private void drawPopupScrollbar(GuiGraphics guiGraphics, int popupTop, int visible)
+    {
+        int maxScroll = maxScroll();
+        if (maxScroll <= 0)
+        {
+            return;
+        }
+        int barX = x + width - 3;
+        int trackHeight = visible * OPTION_HEIGHT;
+        int thumbHeight = Math.max(8, trackHeight * visible / options.size());
+        int thumbY = popupTop + (trackHeight - thumbHeight) * scroll / maxScroll;
+        guiGraphics.fill(barX, popupTop, barX + 2, popupTop + trackHeight, 0x80000000);
+        guiGraphics.fill(barX, thumbY, barX + 2, thumbY + thumbHeight, 0xFFA0A0A0);
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button)
@@ -100,9 +137,11 @@ public final class Dropdown implements Renderable
 
         if (open)
         {
-            if (mouseX >= x && mouseX < x + width && mouseY > y + height)
+            int popupTop = y + height;
+            int popupBottom = popupTop + visibleOptions() * OPTION_HEIGHT;
+            if (mouseX >= x && mouseX < x + width && mouseY >= popupTop && mouseY < popupBottom)
             {
-                int index = (int) ((mouseY - (y + height)) / OPTION_HEIGHT);
+                int index = scroll + (int) ((mouseY - popupTop) / OPTION_HEIGHT);
                 if (index >= 0 && index < options.size())
                 {
                     setValue(options.get(index));
@@ -117,9 +156,48 @@ public final class Dropdown implements Renderable
         if (isOver(mouseX, mouseY, x, y, width, height))
         {
             open = true;
+            scroll = 0;
             return true;
         }
         return false;
+    }
+
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta)
+    {
+        if (!open || visibleOptions() >= options.size())
+        {
+            return false;
+        }
+        int popupTop = y + height;
+        int popupBottom = popupTop + visibleOptions() * OPTION_HEIGHT;
+        if (mouseX < x || mouseX >= x + width || mouseY < popupTop || mouseY >= popupBottom)
+        {
+            return false;
+        }
+        scroll = clampScroll(scroll - (int) Math.round(delta));
+        return true;
+    }
+
+    private int maxVisible()
+    {
+        int screenHeight = Minecraft.getInstance().getWindow().getGuiScaledHeight();
+        int available = screenHeight - (y + height) - SCREEN_MARGIN;
+        return Math.max(MIN_VISIBLE, available / OPTION_HEIGHT);
+    }
+
+    private int visibleOptions()
+    {
+        return Math.min(options.size(), maxVisible());
+    }
+
+    private int maxScroll()
+    {
+        return Math.max(0, options.size() - visibleOptions());
+    }
+
+    private int clampScroll(int value)
+    {
+        return Math.max(0, Math.min(maxScroll(), value));
     }
 
     private String fit(String text)
