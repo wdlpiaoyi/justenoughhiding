@@ -1,14 +1,12 @@
 package com.wdlpiaoyi.justenoughhiding.client.gui;
 
-import com.mojang.blaze3d.platform.InputConstants;
 import com.wdlpiaoyi.justenoughhiding.client.gui.widget.Dropdown;
+import com.wdlpiaoyi.justenoughhiding.client.viewer.Adapters;
+import com.wdlpiaoyi.justenoughhiding.client.viewer.IconRenderer;
+import com.wdlpiaoyi.justenoughhiding.client.viewer.ViewerAdapter;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
 import com.wdlpiaoyi.justenoughhiding.intent.Intent;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentRegistry;
-import com.wdlpiaoyi.justenoughhiding.jei.JehJeiPlugin;
-import mezz.jei.api.constants.VanillaTypes;
-import mezz.jei.api.runtime.IJeiKeyMapping;
-import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -17,7 +15,6 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -124,6 +121,7 @@ public final class IntentScreen extends Screen
         int listHeight = Math.max(20, this.height - MARGIN - listTop);
         list = new IntentList(this.font);
         list.setBounds(MARGIN, listTop, this.width - MARGIN * 2, listHeight);
+        list.setColumns(Adapters.active().columns());
         addRenderableOnly(list);
 
         apply();
@@ -166,7 +164,7 @@ public final class IntentScreen extends Screen
             }
             if (!query.isEmpty())
             {
-                String haystack = (intent.kind().name() + " " + intent.source().id() + " " + IntentFormat.targetText(intent.target()))
+                String haystack = (intent.kind().name() + " " + intent.source().id() + " " + intent.target().describe())
                     .toLowerCase(Locale.ROOT);
                 if (!haystack.contains(query))
                 {
@@ -227,7 +225,7 @@ public final class IntentScreen extends Screen
         {
             return;
         }
-        String text = uidOnly ? IntentFormat.uid(selected) : IntentFormat.line(selected);
+        String text = uidOnly ? selected.target().copyText() : IntentFormat.line(selected);
         Minecraft.getInstance().keyboardHandler.setClipboard(text);
         setStatus("Copied: " + text);
     }
@@ -324,17 +322,17 @@ public final class IntentScreen extends Screen
             return;
         }
 
-        ItemStack icon = ItemIcons.resolve(hovered.target());
+        IconRenderer icon = Adapters.active().icon(hovered.target());
         if (!icon.isEmpty())
         {
-            guiGraphics.renderTooltip(this.font, icon, mouseX, mouseY);
+            icon.renderTooltip(guiGraphics, this.font, mouseX, mouseY);
             return;
         }
 
         this.setTooltipForNextRenderPass(List.of(
             Component.literal(hovered.kind().name()),
             Component.literal("source: " + hovered.source().id()),
-            Component.literal("target: " + IntentFormat.targetText(hovered.target())),
+            Component.literal("target: " + hovered.target().describe()),
             Component.literal("count: " + hovered.count())
         ).stream().map(Component::getVisualOrderText).toList());
     }
@@ -422,14 +420,8 @@ public final class IntentScreen extends Screen
 
     private boolean addBookmarkUnderMouse(int keyCode, int scanCode)
     {
-        IJeiRuntime runtime = JehJeiPlugin.getRuntime();
-        if (runtime == null)
-        {
-            return false;
-        }
-        IJeiKeyMapping bookmarkKey = runtime.getKeyMappings().getBookmark();
-        if (bookmarkKey == null || bookmarkKey.isUnbound()
-            || !bookmarkKey.isActiveAndMatches(InputConstants.getKey(keyCode, scanCode)))
+        ViewerAdapter adapter = Adapters.active();
+        if (!adapter.isBookmarkKey(keyCode, scanCode))
         {
             return false;
         }
@@ -437,19 +429,11 @@ public final class IntentScreen extends Screen
         Intent hovered = JehConfig.bookmarkTarget() == JehConfig.BookmarkTarget.ROW
             ? list.intentAt(lastMouseX, lastMouseY)
             : list.intentAtIcon(lastMouseX, lastMouseY);
-        if (hovered == null)
+        if (hovered == null || !adapter.bookmark(hovered.target()))
         {
             return false;
         }
-        ItemStack stack = ItemIcons.resolve(hovered.target());
-        if (stack.isEmpty())
-        {
-            return false;
-        }
-
-        runtime.getIngredientManager().createTypedIngredient(VanillaTypes.ITEM_STACK, stack)
-            .ifPresent(typed -> runtime.getBookmarkManager().add(typed));
-        setStatus("Bookmarked: " + IntentFormat.targetText(hovered.target()));
+        setStatus("Bookmarked: " + hovered.target().describe());
         return true;
     }
 

@@ -23,7 +23,7 @@ public final class IntentSort
             {
                 case "source" -> next = Comparator.comparing((Intent intent) -> intent.source().id());
                 case "kind" -> next = Comparator.comparing((Intent intent) -> intent.kind().name());
-                case "target" -> next = Comparator.comparing((Intent intent) -> IntentFormat.targetText(intent.target()));
+                case "target" -> next = Comparator.comparing((Intent intent) -> intent.target().describe());
                 case "count" -> next = Comparator.comparingInt(Intent::count);
                 case "sequence" -> next = Comparator.comparingLong(Intent::sequence);
                 default -> next = null;

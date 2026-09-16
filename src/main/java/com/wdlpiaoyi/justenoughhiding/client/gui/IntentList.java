@@ -1,10 +1,10 @@
 package com.wdlpiaoyi.justenoughhiding.client.gui;
 
+import com.wdlpiaoyi.justenoughhiding.client.gui.column.Column;
 import com.wdlpiaoyi.justenoughhiding.intent.Intent;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
-import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 
@@ -12,10 +12,7 @@ public final class IntentList implements Renderable
 {
     private static final int ROW_HEIGHT = 18;
     private static final int SCROLLBAR_WIDTH = 6;
-    private static final int ICON_WIDTH = 18;
-    private static final int KIND_WIDTH = 96;
-    private static final int SOURCE_WIDTH = 110;
-    private static final int COUNT_WIDTH = 34;
+    private static final int MIN_FLEX_WIDTH = 20;
 
     private final Font font;
 
@@ -24,6 +21,7 @@ public final class IntentList implements Renderable
     private int width;
     private int height;
 
+    private List<Column> columns = List.of();
     private List<Intent> rows = List.of();
     private Intent selected;
     private int scroll;
@@ -42,6 +40,11 @@ public final class IntentList implements Renderable
         this.width = width;
         this.height = height;
         this.scroll = clampScroll(this.scroll);
+    }
+
+    public void setColumns(List<Column> columns)
+    {
+        this.columns = columns;
     }
 
     public void setRows(List<Intent> rows)
@@ -92,45 +95,43 @@ public final class IntentList implements Renderable
             {
                 guiGraphics.fill(x, rowY, rowRight, rowBottom, 0x40FFFFFF);
             }
-            drawRow(guiGraphics, intent, x, rowY, rowRight - x);
+            renderColumns(guiGraphics, intent, rowY, rowRight - x);
         }
         guiGraphics.disableScissor();
 
         drawScrollbar(guiGraphics);
     }
 
-    private void drawRow(GuiGraphics guiGraphics, Intent intent, int rowLeft, int rowTop, int rowWidth)
+    private void renderColumns(GuiGraphics guiGraphics, Intent intent, int rowTop, int rowWidth)
     {
-        ItemStack icon = ItemIcons.resolve(intent.target());
-        if (!icon.isEmpty())
+        if (columns.isEmpty())
         {
-            guiGraphics.renderItem(icon, rowLeft + 1, rowTop + 1);
-            guiGraphics.renderItemDecorations(font, icon, rowLeft + 1, rowTop + 1);
+            return;
         }
 
-        int left = rowLeft + ICON_WIDTH;
-        int top = rowTop + (ROW_HEIGHT - 8) / 2;
-        int targetWidth = Math.max(20, rowWidth - ICON_WIDTH - KIND_WIDTH - SOURCE_WIDTH - COUNT_WIDTH);
-        int kindColor = intent.kind().isHide() ? 0xFFFF7070 : 0xFF70FF70;
+        int usableWidth = Math.max(MIN_FLEX_WIDTH, rowWidth - 4);
+        int fixedWidth = 0;
+        int flexCount = 0;
+        for (Column column : columns)
+        {
+            if (column.flexible())
+            {
+                flexCount++;
+            }
+            else
+            {
+                fixedWidth += column.width();
+            }
+        }
+        int flexWidth = flexCount > 0 ? Math.max(MIN_FLEX_WIDTH, (usableWidth - fixedWidth) / flexCount) : 0;
 
-        guiGraphics.drawString(font, fit(intent.kind().name(), KIND_WIDTH), left, top, kindColor, false);
-        guiGraphics.drawString(font, fit(intent.source().id(), SOURCE_WIDTH), left + KIND_WIDTH, top, 0xFFB0B0B0, false);
-        guiGraphics.drawString(
-            font,
-            fit(IntentFormat.targetText(intent.target()), targetWidth),
-            left + KIND_WIDTH + SOURCE_WIDTH,
-            top,
-            0xFFE0E0E0,
-            false
-        );
-        guiGraphics.drawString(
-            font,
-            "x" + intent.count(),
-            left + KIND_WIDTH + SOURCE_WIDTH + targetWidth,
-            top,
-            0xFF808080,
-            false
-        );
+        int left = x + 2;
+        for (Column column : columns)
+        {
+            int columnWidth = column.flexible() ? flexWidth : column.width();
+            column.render(guiGraphics, font, intent, left, rowTop, columnWidth, ROW_HEIGHT);
+            left += columnWidth;
+        }
     }
 
     private void drawScrollbar(GuiGraphics guiGraphics)
@@ -203,8 +204,12 @@ public final class IntentList implements Renderable
 
     public Intent intentAtIcon(int mouseX, int mouseY)
     {
-        int iconLeft = x + 1;
-        if (mouseX < iconLeft || mouseX >= iconLeft + 16 || mouseY < y || mouseY >= y + height)
+        if (columns.isEmpty() || !columns.get(0).isIcon())
+        {
+            return null;
+        }
+        int iconRight = x + columns.get(0).width();
+        if (mouseX < x || mouseX >= iconRight || mouseY < y || mouseY >= y + height)
         {
             return null;
         }
@@ -237,14 +242,5 @@ public final class IntentList implements Renderable
         int thumbHeight = thumbHeight();
         double ratio = (mouseY - y - thumbHeight / 2.0) / Math.max(1, height - thumbHeight);
         scroll = clampScroll((int) Math.round(ratio * maxScroll()));
-    }
-
-    private String fit(String text, int maxWidth)
-    {
-        if (text == null)
-        {
-            return "";
-        }
-        return font.plainSubstrByWidth(text, maxWidth);
     }
 }
