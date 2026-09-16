@@ -37,8 +37,9 @@ public final class HidingListScreen extends Screen
     private static final int ROW_HEIGHT = 20;
     private static final int TOP = 32;
     private static final int TARGET_COLUMN = 1;
-    private static final int NOTE_COLUMN = 3;
-    private static final String[] SORT_MODES = {"target", "enabled", "note", "kind"};
+    private static final int PRIORITY_COLUMN = 2;
+    private static final int NOTE_COLUMN = 4;
+    private static final String[] SORT_MODES = {"target", "priority", "enabled", "note", "kind"};
     private static final String TARGET_HINT = "Type an id; pick a type tab (Auto detects the kind)";
     private static final int SUGGEST_LIMIT = 40;
     private static final int MATCH_CAP = 1000;
@@ -142,7 +143,8 @@ public final class HidingListScreen extends Screen
         list.setBounds(MARGIN, listTop, this.width - MARGIN * 2, listHeight);
         list.setColumns(List.of(
             Columns.icon(18, (ListEHidingEntry entry) -> adapter.icon(entry.target())),
-            Columns.<ListEHidingEntry>flexible(entry -> entry.target().describe(), entry -> 0xFFE0E0E0),
+            Columns.<ListEHidingEntry>flexible(entry -> TargetKeys.label(entry.target()), entry -> 0xFFE0E0E0),
+            Columns.<ListEHidingEntry>fixed(44, entry -> Integer.toString(entry.priority()), entry -> 0xFFC0C0FF),
             Columns.<ListEHidingEntry>fixed(64, entry -> entry.enabled() ? "enabled" : "disabled",
                 entry -> entry.enabled() ? 0xFF70FF70 : 0xFFFF7070),
             Columns.<ListEHidingEntry>fixed(200, ListEHidingEntry::note, entry -> 0xFFB0B0B0)
@@ -214,7 +216,8 @@ public final class HidingListScreen extends Screen
             }
             if (!query.isEmpty())
             {
-                String haystack = (entry.target().describe() + " " + entry.target().kind() + " "
+                String haystack = (TargetKeys.label(entry.target()) + " " + entry.target().kind() + " "
+                    + TargetKeys.kindKey(entry.target()) + " " + entry.priority() + " "
                     + (entry.enabled() ? "enabled" : "disabled") + " " + entry.note())
                     .toLowerCase(Locale.ROOT);
                 if (!haystack.contains(query))
@@ -244,6 +247,7 @@ public final class HidingListScreen extends Screen
     {
         return switch (mode)
         {
+            case "priority" -> Comparator.comparingInt(ListEHidingEntry::priority);
             case "enabled" -> Comparator.comparing(ListEHidingEntry::enabled);
             case "note" -> Comparator.comparing(ListEHidingEntry::note, String.CASE_INSENSITIVE_ORDER);
             case "kind" -> Comparator.comparing(entry -> entry.target().kind());
@@ -310,6 +314,7 @@ public final class HidingListScreen extends Screen
         items.add(new PopupMenu.Item(entry.enabled() ? "Disable" : "Enable", 0xFFFFFFFF, () -> toggle(entry)));
         items.add(new PopupMenu.Item("Edit target...", 0xFFFFFFFF, () -> startTargetEdit(entry)));
         items.add(new PopupMenu.Item("Edit note...", 0xFFFFFFFF, () -> startNoteEdit(entry)));
+        items.add(new PopupMenu.Item("Edit priority...", 0xFFFFFFFF, () -> startPriorityEdit(entry)));
         items.add(new PopupMenu.Item("Delete", 0xFFFF7070, () -> showDeleteConfirm(entry)));
         menu = PopupMenu.at(this.font, menuX, menuY, 190, items);
     }
@@ -323,7 +328,7 @@ public final class HidingListScreen extends Screen
     private void toggle(ListEHidingEntry entry)
     {
         int index = ListEHiding.get().indexOf(entry);
-        ListEHiding.get().set(index, new ListEHidingEntry(entry.target(), !entry.enabled(), entry.note()));
+        ListEHiding.get().set(index, new ListEHidingEntry(entry.target(), !entry.enabled(), entry.note(), entry.priority()));
         apply();
     }
 
@@ -338,6 +343,11 @@ public final class HidingListScreen extends Screen
     private void startNoteEdit(ListEHidingEntry entry)
     {
         startEdit(entry, NOTE_COLUMN, entry.note());
+    }
+
+    private void startPriorityEdit(ListEHidingEntry entry)
+    {
+        startEdit(entry, PRIORITY_COLUMN, Integer.toString(entry.priority()));
     }
 
     private void startTargetEdit(ListEHidingEntry entry)
@@ -466,7 +476,7 @@ public final class HidingListScreen extends Screen
         inlineEditor.setSuggestion("");
         autocomplete.setActive(false);
         setFocused(null);
-        replace(entry, new ListEHidingEntry(suggestion.target(), entry.enabled(), entry.note()));
+        replace(entry, new ListEHidingEntry(suggestion.target(), entry.enabled(), entry.note(), entry.priority()));
     }
 
     private boolean handleDoubleClick(double mouseX, double mouseY)
@@ -482,7 +492,7 @@ public final class HidingListScreen extends Screen
         long now = System.currentTimeMillis();
         boolean doubleClick = row == lastClickRow && column == lastClickColumn
             && now - lastClickTime <= 300L
-            && (column == TARGET_COLUMN || column == NOTE_COLUMN);
+            && (column == TARGET_COLUMN || column == NOTE_COLUMN || column == PRIORITY_COLUMN);
 
         lastClickRow = row;
         lastClickColumn = column;
@@ -497,6 +507,10 @@ public final class HidingListScreen extends Screen
         if (column == TARGET_COLUMN)
         {
             startTargetEdit(row);
+        }
+        else if (column == PRIORITY_COLUMN)
+        {
+            startPriorityEdit(row);
         }
         else
         {
@@ -554,7 +568,7 @@ public final class HidingListScreen extends Screen
                 setStatus("Unknown target: " + id);
                 return;
             }
-            replace(entry, new ListEHidingEntry(parsed, entry.enabled(), entry.note()));
+            replace(entry, new ListEHidingEntry(parsed, entry.enabled(), entry.note(), entry.priority()));
             if (parsed instanceof IntentTarget.Pattern)
             {
                 int count = Adapters.active().matches(parsed, MATCH_CAP).size();
@@ -562,9 +576,29 @@ public final class HidingListScreen extends Screen
                     : "Pattern matches " + (count >= MATCH_CAP ? MATCH_CAP + "+" : String.valueOf(count)));
             }
         }
-        else if (!text.equals(entry.note()))
+        else if (column == NOTE_COLUMN)
         {
-            replace(entry, new ListEHidingEntry(entry.target(), entry.enabled(), text));
+            if (!text.equals(entry.note()))
+            {
+                replace(entry, new ListEHidingEntry(entry.target(), entry.enabled(), text, entry.priority()));
+            }
+        }
+        else if (column == PRIORITY_COLUMN)
+        {
+            int priority;
+            try
+            {
+                priority = Integer.parseInt(text.trim());
+            }
+            catch (NumberFormatException e)
+            {
+                setStatus("Invalid priority: " + text);
+                return;
+            }
+            if (priority != entry.priority())
+            {
+                replace(entry, new ListEHidingEntry(entry.target(), entry.enabled(), entry.note(), priority));
+            }
         }
     }
 
@@ -694,7 +728,8 @@ public final class HidingListScreen extends Screen
         }
 
         this.setTooltipForNextRenderPass(List.of(
-            Component.literal("target: " + hovered.target().describe()),
+            Component.literal("target: " + TargetKeys.label(hovered.target())),
+            Component.literal("priority: " + hovered.priority()),
             Component.literal("enabled: " + hovered.enabled()),
             Component.literal("note: " + hovered.note())
         ).stream().map(Component::getVisualOrderText).toList());

@@ -81,4 +81,80 @@ public final class TargetKeys
         String trimmed = text == null ? "" : text.trim();
         return trimmed.startsWith("~") ? trimmed.substring(1) : trimmed;
     }
+
+    /** Friendly name for a JEI ingredient type uid (Item / Fluid / Chemical / ...). */
+    public static String typeLabel(String typeUid)
+    {
+        if (typeUid == null || typeUid.isBlank())
+        {
+            return "Ingredient";
+        }
+        String lower = typeUid.toLowerCase(java.util.Locale.ROOT);
+        if (lower.contains("item"))
+        {
+            return "Item";
+        }
+        if (lower.contains("fluid"))
+        {
+            return "Fluid";
+        }
+        if (lower.contains("chemical"))
+        {
+            return "Chemical";
+        }
+        if (lower.contains("energy"))
+        {
+            return "Energy";
+        }
+        String path = lower;
+        int colon = path.indexOf(':');
+        if (colon >= 0)
+        {
+            path = path.substring(colon + 1);
+        }
+        StringBuilder result = new StringBuilder();
+        for (String word : path.replace('_', ' ').trim().split(" "))
+        {
+            if (word.isEmpty())
+            {
+                continue;
+            }
+            if (result.length() > 0)
+            {
+                result.append(' ');
+            }
+            result.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return result.length() == 0 ? typeUid : result.toString();
+    }
+
+    /** Friendly name for a target kind scope key used by pattern targets. */
+    public static String scopeLabel(String scope)
+    {
+        if (scope == null || scope.isBlank())
+        {
+            return "Any";
+        }
+        if (scope.startsWith("ingredient|"))
+        {
+            return typeLabel(scope.substring("ingredient|".length()));
+        }
+        return switch (scope)
+        {
+            case "recipe" -> "Recipe";
+            case "recipe_category" -> "Category";
+            case "tag" -> "Tag";
+            default -> scope;
+        };
+    }
+
+    /** Display label for a target, showing a pattern's scope to avoid hiding it in the editor. */
+    public static String label(IntentTarget target)
+    {
+        if (target instanceof IntentTarget.Pattern pattern && !pattern.scope().isBlank())
+        {
+            return scopeLabel(pattern.scope()) + " " + pattern.describe();
+        }
+        return target.describe();
+    }
 }

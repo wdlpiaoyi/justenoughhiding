@@ -26,7 +26,7 @@ public final class ListEHiding
 
     public static ListEHidingEntry blankEntry()
     {
-        return new ListEHidingEntry(new IntentTarget.Unset(), true, "");
+        return new ListEHidingEntry(new IntentTarget.Unset(), true, "", 0);
     }
 
     public List<ListEHidingEntry> entries()

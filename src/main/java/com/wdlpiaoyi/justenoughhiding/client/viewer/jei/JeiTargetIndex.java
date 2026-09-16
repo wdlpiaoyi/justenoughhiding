@@ -69,47 +69,7 @@ final class JeiTargetIndex
 
     static String typeLabel(String typeUid)
     {
-        if (typeUid == null || typeUid.isBlank())
-        {
-            return "Ingredient";
-        }
-        String lower = typeUid.toLowerCase(Locale.ROOT);
-        if (lower.contains("item"))
-        {
-            return "Item";
-        }
-        if (lower.contains("fluid"))
-        {
-            return "Fluid";
-        }
-        if (lower.contains("chemical"))
-        {
-            return "Chemical";
-        }
-        if (lower.contains("energy"))
-        {
-            return "Energy";
-        }
-        String path = lower;
-        int colon = path.indexOf(':');
-        if (colon >= 0)
-        {
-            path = path.substring(colon + 1);
-        }
-        StringBuilder result = new StringBuilder();
-        for (String word : path.replace('_', ' ').trim().split(" "))
-        {
-            if (word.isEmpty())
-            {
-                continue;
-            }
-            if (result.length() > 0)
-            {
-                result.append(' ');
-            }
-            result.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
-        }
-        return result.length() == 0 ? typeUid : result.toString();
+        return TargetKeys.typeLabel(typeUid);
     }
 
     List<TargetSuggestion> suggest(String query, String kind, int limit)
@@ -175,7 +135,7 @@ final class JeiTargetIndex
         {
             return List.of();
         }
-        if ("tag".equals(pattern.scope()))
+        if (pattern.scope().isEmpty() || "tag".equals(pattern.scope()))
         {
             ensureTags();
         }

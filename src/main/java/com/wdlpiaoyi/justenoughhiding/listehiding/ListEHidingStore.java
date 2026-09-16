@@ -130,7 +130,8 @@ public final class ListEHidingStore
         {
             return null;
         }
-        return new ListEHidingEntry(target, dto.enabled == null || dto.enabled, dto.note == null ? "" : dto.note);
+        return new ListEHidingEntry(target, dto.enabled == null || dto.enabled,
+            dto.note == null ? "" : dto.note, dto.priority == null ? 0 : dto.priority);
     }
 
     private static EntryDto toDto(ListEHidingEntry entry)
@@ -163,6 +164,7 @@ public final class ListEHidingStore
         }
         dto.enabled = entry.enabled();
         dto.note = entry.note();
+        dto.priority = entry.priority();
         return dto;
     }
 
@@ -184,5 +186,6 @@ public final class ListEHidingStore
         private String scope;
         private Boolean enabled;
         private String note;
+        private Integer priority;
     }
 }
