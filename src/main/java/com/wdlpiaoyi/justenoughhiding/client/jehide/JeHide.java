@@ -6,6 +6,7 @@ import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetSuggestion;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
 import com.wdlpiaoyi.justenoughhiding.intent.Intent;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentRegistry;
+import com.wdlpiaoyi.justenoughhiding.intent.IntentSource;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import com.wdlpiaoyi.justenoughhiding.jei.intent.JeiIntentRecorder;
 import com.wdlpiaoyi.justenoughhiding.listehiding.ListEHiding;
@@ -59,6 +60,7 @@ public final class JeHide
     private static IJeiRuntime previousRuntime;
     private static volatile boolean dirty;
     private static volatile long lastChangeMs;
+    private static volatile boolean lastEditMode;
     private static boolean listenerRegistered;
 
     private JeHide()
@@ -99,13 +101,23 @@ public final class JeHide
         int intentCount = 0;
         if (JehConfig.jehideApplyIntents())
         {
+            boolean editMode = JehEditMode.isEditModeEnabled();
             for (Intent intent : IntentRegistry.query().all())
             {
-                if (intent.kind().isHide())
+                if (!intent.kind().isHide())
                 {
-                    targets.add(intent.target());
-                    intentCount++;
+                    continue;
                 }
+                if (editMode && intent.source().type() == IntentSource.Type.JEI_EDIT_MODE)
+                {
+                    continue;
+                }
+                if (!IntentOverrides.isEnabled(intent.target(), intent.source().id()))
+                {
+                    continue;
+                }
+                targets.add(intent.target());
+                intentCount++;
             }
         }
         List<IntentTarget> expanded = expand(targets);
@@ -135,6 +147,16 @@ public final class JeHide
     /** Called every client tick: re-apply (debounced) after intent changes. */
     public static void tick()
     {
+        if (JehConfig.jehideEnabled() && JehConfig.jehideApplyIntents())
+        {
+            boolean editMode = JehEditMode.isEditModeEnabled();
+            if (editMode != lastEditMode)
+            {
+                lastEditMode = editMode;
+                dirty = true;
+                lastChangeMs = System.currentTimeMillis();
+            }
+        }
         if (!dirty)
         {
             return;

@@ -7,6 +7,7 @@
   "refmap": "justenoughhiding.refmap.json",
   "client": [
     "jei.RevealMixin",
+    "jei.ClientToggleStateMixin",
     "jei.intent.PluginCallerContextMixin",
     "jei.intent.IngredientManagerIntentMixin",
     "jei.intent.IngredientVisibilityIntentMixin",

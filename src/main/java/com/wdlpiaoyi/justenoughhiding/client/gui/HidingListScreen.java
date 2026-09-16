@@ -11,6 +11,11 @@ import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetKind;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetSuggestion;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.ViewerAdapter;
 import com.wdlpiaoyi.justenoughhiding.client.jehide.JeHide;
+import com.wdlpiaoyi.justenoughhiding.client.jehide.JehEditMode;
+import com.wdlpiaoyi.justenoughhiding.client.jehide.IntentOverrides;
+import com.wdlpiaoyi.justenoughhiding.intent.Intent;
+import com.wdlpiaoyi.justenoughhiding.intent.IntentRegistry;
+import com.wdlpiaoyi.justenoughhiding.intent.IntentSource;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import com.wdlpiaoyi.justenoughhiding.listehiding.ListEHiding;
 import com.wdlpiaoyi.justenoughhiding.listehiding.ListEHidingEntry;
@@ -27,6 +32,7 @@ import org.lwjgl.glfw.GLFW;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -46,6 +52,7 @@ public final class HidingListScreen extends Screen
     private static final int MATCH_CAP = 1000;
 
     private final List<Dropdown> dropdowns = new ArrayList<>();
+    private final IdentityHashMap<ListEHidingEntry, Intent> intentRows = new IdentityHashMap<>();
 
     private RowList<ListEHidingEntry> list;
     private EditBox inlineEditor;
@@ -144,11 +151,14 @@ public final class HidingListScreen extends Screen
         list.setBounds(MARGIN, listTop, this.width - MARGIN * 2, listHeight);
         list.setColumns(List.of(
             Columns.icon(18, (ListEHidingEntry entry) -> adapter.icon(entry.target())),
-            Columns.<ListEHidingEntry>flexible(entry -> TargetKeys.label(entry.target()), entry -> 0xFFE0E0E0),
-            Columns.<ListEHidingEntry>fixed(44, entry -> Integer.toString(entry.priority()), entry -> 0xFFC0C0FF),
+            Columns.<ListEHidingEntry>flexible(entry -> TargetKeys.label(entry.target()),
+                entry -> isIntentRow(entry) ? 0xFF909090 : 0xFFE0E0E0),
+            Columns.<ListEHidingEntry>fixed(44, entry -> isIntentRow(entry) ? "" : Integer.toString(entry.priority()),
+                entry -> isIntentRow(entry) ? 0xFF909090 : 0xFFC0C0FF),
             Columns.<ListEHidingEntry>fixed(64, entry -> entry.enabled() ? "enabled" : "disabled",
-                entry -> entry.enabled() ? 0xFF70FF70 : 0xFFFF7070),
-            Columns.<ListEHidingEntry>fixed(200, ListEHidingEntry::note, entry -> 0xFFB0B0B0)
+                entry -> isIntentRow(entry) ? 0xFF909090 : (entry.enabled() ? 0xFF70FF70 : 0xFFFF7070)),
+            Columns.<ListEHidingEntry>fixed(200, ListEHidingEntry::note,
+                entry -> isIntentRow(entry) ? 0xFF808080 : 0xFFB0B0B0)
         ));
         list.setRightClickListener(this::openMenu);
         addRenderableOnly(list);
@@ -182,10 +192,42 @@ public final class HidingListScreen extends Screen
         {
             values.add(labels.getOrDefault(TargetKeys.kindKey(entry.target()), "Auto"));
         }
+        for (Intent intent : hideIntents())
+        {
+            values.add(labels.getOrDefault(TargetKeys.kindKey(intent.target()), "Auto"));
+        }
         List<String> options = new ArrayList<>();
         options.add("All");
         options.addAll(values);
         return options;
+    }
+
+    private static List<Intent> hideIntents()
+    {
+        List<Intent> result = new ArrayList<>();
+        for (Intent intent : IntentRegistry.query().all())
+        {
+            if (intent.kind().isHide())
+            {
+                result.add(intent);
+            }
+        }
+        return result;
+    }
+
+    private static String intentNote(Intent intent, boolean editMode)
+    {
+        String note = "intent + " + intent.source().id();
+        if (editMode && intent.source().type() == IntentSource.Type.JEI_EDIT_MODE)
+        {
+            note += " (edit mode paused)";
+        }
+        return note;
+    }
+
+    private boolean isIntentRow(ListEHidingEntry entry)
+    {
+        return intentRows.containsKey(entry);
     }
 
     private void apply()
@@ -200,8 +242,20 @@ public final class HidingListScreen extends Screen
         String state = stateDropdown.getValue();
         Map<String, String> kindLabels = kindLabels();
 
+        intentRows.clear();
+        boolean editMode = JehEditMode.isEditModeEnabled();
+        List<ListEHidingEntry> combined = new ArrayList<>(ListEHiding.get().entries());
+        for (Intent intent : hideIntents())
+        {
+            boolean applied = IntentOverrides.isEnabled(intent.target(), intent.source().id())
+                && !(editMode && intent.source().type() == IntentSource.Type.JEI_EDIT_MODE);
+            ListEHidingEntry row = new ListEHidingEntry(intent.target(), applied, intentNote(intent, editMode), 0);
+            intentRows.put(row, intent);
+            combined.add(row);
+        }
+
         List<ListEHidingEntry> view = new ArrayList<>();
-        for (ListEHidingEntry entry : ListEHiding.get().entries())
+        for (ListEHidingEntry entry : combined)
         {
             if (!"All".equals(kind) && !kind.equals(kindLabels.getOrDefault(TargetKeys.kindKey(entry.target()), "Auto")))
             {
@@ -314,6 +368,14 @@ public final class HidingListScreen extends Screen
     private void showMainMenu(ListEHidingEntry entry)
     {
         List<PopupMenu.Item> items = new ArrayList<>();
+        Intent intent = intentRows.get(entry);
+        if (intent != null)
+        {
+            boolean enabled = IntentOverrides.isEnabled(intent.target(), intent.source().id());
+            items.add(new PopupMenu.Item(enabled ? "Disable" : "Enable", 0xFFFFFFFF, () -> toggle(entry)));
+            menu = PopupMenu.at(this.font, menuX, menuY, 190, items);
+            return;
+        }
         items.add(new PopupMenu.Item(entry.enabled() ? "Disable" : "Enable", 0xFFFFFFFF, () -> toggle(entry)));
         items.add(new PopupMenu.Item("Edit target...", 0xFFFFFFFF, () -> startTargetEdit(entry)));
         items.add(new PopupMenu.Item("Edit note...", 0xFFFFFFFF, () -> startNoteEdit(entry)));
@@ -330,6 +392,14 @@ public final class HidingListScreen extends Screen
 
     private void toggle(ListEHidingEntry entry)
     {
+        Intent intent = intentRows.get(entry);
+        if (intent != null)
+        {
+            boolean enabled = IntentOverrides.isEnabled(intent.target(), intent.source().id());
+            IntentOverrides.setEnabled(intent.target(), intent.source().id(), !enabled);
+            apply();
+            return;
+        }
         int index = ListEHiding.get().indexOf(entry);
         ListEHiding.get().set(index, new ListEHidingEntry(entry.target(), !entry.enabled(), entry.note(), entry.priority()));
         apply();
@@ -337,6 +407,10 @@ public final class HidingListScreen extends Screen
 
     private void delete(ListEHidingEntry entry)
     {
+        if (isIntentRow(entry))
+        {
+            return;
+        }
         int index = ListEHiding.get().indexOf(entry);
         ListEHiding.get().remove(index);
         kindDropdown.setOptions(kindOptions());
@@ -345,16 +419,28 @@ public final class HidingListScreen extends Screen
 
     private void startNoteEdit(ListEHidingEntry entry)
     {
+        if (isIntentRow(entry))
+        {
+            return;
+        }
         startEdit(entry, NOTE_COLUMN, entry.note());
     }
 
     private void startPriorityEdit(ListEHidingEntry entry)
     {
+        if (isIntentRow(entry))
+        {
+            return;
+        }
         startEdit(entry, PRIORITY_COLUMN, Integer.toString(entry.priority()));
     }
 
     private void startTargetEdit(ListEHidingEntry entry)
     {
+        if (isIntentRow(entry))
+        {
+            return;
+        }
         IntentTarget target = entry.target();
         String id = TargetKeys.id(target);
         autocomplete.setKinds(Adapters.active().targetKinds());
@@ -486,6 +572,12 @@ public final class HidingListScreen extends Screen
     {
         ListEHidingEntry row = list.rowAt((int) mouseX, (int) mouseY);
         if (row == null)
+        {
+            lastClickRow = null;
+            lastClickColumn = -1;
+            return false;
+        }
+        if (isIntentRow(row))
         {
             lastClickRow = null;
             lastClickColumn = -1;
@@ -720,6 +812,18 @@ public final class HidingListScreen extends Screen
         ListEHidingEntry hovered = list.rowAt(mouseX, mouseY);
         if (hovered == null)
         {
+            return;
+        }
+
+        Intent intent = intentRows.get(hovered);
+        if (intent != null)
+        {
+            this.setTooltipForNextRenderPass(List.of(
+                Component.literal("intent: " + TargetKeys.label(hovered.target())),
+                Component.literal("source: " + intent.source().id()),
+                Component.literal("kind: " + intent.kind().name()),
+                Component.literal("applied: " + hovered.enabled())
+            ).stream().map(Component::getVisualOrderText).toList());
             return;
         }
 
