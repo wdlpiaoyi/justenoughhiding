@@ -326,6 +326,7 @@ public final class HidingListScreen extends Screen
         commitEdit();
         disarmRefresh();
         ListEHiding.get().saveIfDirty();
+        apply();
         JeHide.reapply();
         setStatus("Saved");
     }
