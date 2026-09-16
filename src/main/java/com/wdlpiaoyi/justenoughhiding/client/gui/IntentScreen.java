@@ -18,6 +18,7 @@ import net.minecraft.network.chat.Component;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.TreeSet;
@@ -43,6 +44,8 @@ public final class IntentScreen extends Screen
     private Dropdown sourceDropdown;
     private Dropdown kindDropdown;
     private Dropdown sortDropdown;
+    private Button descButton;
+    private boolean descending;
     private RowList<Intent> list;
 
     private String status = "";
@@ -114,8 +117,13 @@ public final class IntentScreen extends Screen
         dropdowns.add(sortDropdown);
 
         Button closeButton = Button.builder(Component.literal("Close"), b -> onClose())
-            .bounds(sortDropdown.getX() + 176, dropdownY, 54, ROW_HEIGHT).build();
+            .bounds(sortDropdown.getX() + 176 + 78, dropdownY, 54, ROW_HEIGHT).build();
         addRenderableWidget(closeButton);
+
+        descButton = Button.builder(Component.literal("Desc: off"), b -> toggleDescending())
+            .tooltip(Tooltip.create(Component.literal("Reverse the sort order")))
+            .bounds(sortDropdown.getX() + 176, dropdownY, 74, ROW_HEIGHT).build();
+        addRenderableWidget(descButton);
 
         int listTop = dropdownY + ROW_HEIGHT + 6;
         int listHeight = Math.max(20, this.height - MARGIN - listTop);
@@ -173,12 +181,25 @@ public final class IntentScreen extends Screen
             }
             filtered.add(intent);
         }
-        filtered.sort(IntentSort.comparator(sortDropdown.getValue()));
+        filtered.sort(comparator());
 
         view.clear();
         view.addAll(filtered);
         list.setRows(view);
         updateButtons();
+    }
+
+    private Comparator<Intent> comparator()
+    {
+        Comparator<Intent> comparator = IntentSort.comparator(sortDropdown.getValue());
+        return descending ? comparator.reversed() : comparator;
+    }
+
+    private void toggleDescending()
+    {
+        descending = !descending;
+        descButton.setMessage(Component.literal("Desc: " + (descending ? "on" : "off")));
+        apply();
     }
 
     private void refresh()
@@ -213,7 +234,7 @@ public final class IntentScreen extends Screen
     private void exportAll()
     {
         List<Intent> sorted = new ArrayList<>(all);
-        sorted.sort(IntentSort.comparator(sortDropdown.getValue()));
+        sorted.sort(comparator());
         Path path = IntentExporter.export(sorted);
         setStatus(path == null ? "Export failed" : "Exported " + sorted.size() + " -> " + path);
     }

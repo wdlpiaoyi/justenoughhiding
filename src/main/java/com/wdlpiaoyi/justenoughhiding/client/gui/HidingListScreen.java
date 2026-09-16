@@ -41,7 +41,9 @@ public final class HidingListScreen extends Screen
     private Dropdown stateDropdown;
     private Dropdown sortDropdown;
     private Button refreshButton;
+    private Button descButton;
     private boolean refreshArmed;
+    private boolean descending;
 
     private ListEHidingEntry editingEntry;
     private PopupMenu menu;
@@ -107,6 +109,12 @@ public final class HidingListScreen extends Screen
         dropdowns.add(kindDropdown);
         dropdowns.add(stateDropdown);
         dropdowns.add(sortDropdown);
+        dropdownX += 136;
+
+        descButton = Button.builder(Component.literal("Desc: off"), b -> toggleDescending())
+            .tooltip(Tooltip.create(Component.literal("Reverse the sort order")))
+            .bounds(dropdownX, controlsY, 74, ROW_HEIGHT).build();
+        addRenderableWidget(descButton);
 
         int listTop = controlsY + ROW_HEIGHT + 6;
         int listHeight = Math.max(20, this.height - MARGIN - listTop);
@@ -181,8 +189,20 @@ public final class HidingListScreen extends Screen
             }
             view.add(entry);
         }
-        view.sort(comparator(sortDropdown.getValue()));
+        Comparator<ListEHidingEntry> comparator = comparator(sortDropdown.getValue());
+        if (descending)
+        {
+            comparator = comparator.reversed();
+        }
+        view.sort(comparator);
         list.setRows(view);
+    }
+
+    private void toggleDescending()
+    {
+        descending = !descending;
+        descButton.setMessage(Component.literal("Desc: " + (descending ? "on" : "off")));
+        apply();
     }
 
     private static Comparator<ListEHidingEntry> comparator(String mode)
@@ -365,8 +385,24 @@ public final class HidingListScreen extends Screen
         }
         else if (openDropdown == null)
         {
-            drawTooltip(guiGraphics, mouseX, mouseY);
+            if (!drawDropdownTooltip(mouseX, mouseY))
+            {
+                drawTooltip(guiGraphics, mouseX, mouseY);
+            }
         }
+    }
+
+    private boolean drawDropdownTooltip(int mouseX, int mouseY)
+    {
+        for (Dropdown dropdown : dropdowns)
+        {
+            if (dropdown.isOverButton(mouseX, mouseY) && dropdown.getTooltip() != null)
+            {
+                this.setTooltipForNextRenderPass(List.of(dropdown.getTooltip().getVisualOrderText()));
+                return true;
+            }
+        }
+        return false;
     }
 
     private int listSize()
