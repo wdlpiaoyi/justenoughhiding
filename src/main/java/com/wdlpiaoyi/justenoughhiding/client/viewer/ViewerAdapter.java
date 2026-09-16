@@ -44,11 +44,11 @@ public interface ViewerAdapter
     }
 
     /**
-     * Candidates matching {@code query} for the GUI autocomplete. {@code query} is the raw
-     * editor text; return at most {@code limit} entries, best matches first. Empty when nothing
-     * matches or the query is blank.
+     * Candidates matching {@code query} for the GUI autocomplete. {@code kind} filters by
+     * {@link IntentTarget#kind()} and may be blank for "any". {@code query} is the raw editor
+     * text; return at most {@code limit} entries, best matches first. Empty when nothing matches.
      */
-    default List<TargetSuggestion> suggest(String query, int limit)
+    default List<TargetSuggestion> suggest(String query, String kind, int limit)
     {
         return List.of();
     }
@@ -56,9 +56,19 @@ public interface ViewerAdapter
     /**
      * Auto-detects the target kind from free user text (an item uid, a recipe id or a recipe
      * category uid). Returns {@code null} when the text is not recognised. Precedence is up to
-     * the implementation; the GUI keeps an explicit prefix override for ambiguous cases.
+     * the implementation.
      */
     default IntentTarget detect(String text)
+    {
+        return null;
+    }
+
+    /**
+     * Builds a target of an explicit kind from an id. A blank {@code kind} means "auto" and
+     * falls back to {@link #detect}. Returns {@code null} when the id cannot be resolved to
+     * that kind.
+     */
+    default IntentTarget ofKind(String kind, String id)
     {
         return null;
     }

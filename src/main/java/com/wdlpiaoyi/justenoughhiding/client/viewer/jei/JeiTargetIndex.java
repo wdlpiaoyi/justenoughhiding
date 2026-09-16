@@ -31,7 +31,7 @@ import java.util.Map;
  */
 final class JeiTargetIndex
 {
-    private record Entry(IntentTarget target, String id, String label, String completion, String search)
+    private record Entry(IntentTarget target, String id, String label, String search)
     {
     }
 
@@ -52,17 +52,22 @@ final class JeiTargetIndex
         return index;
     }
 
-    List<TargetSuggestion> suggest(String query, int limit)
+    List<TargetSuggestion> suggest(String query, String kind, int limit)
     {
         if (query == null || query.isBlank() || limit <= 0)
         {
             return List.of();
         }
         String q = query.trim().toLowerCase(Locale.ROOT);
+        boolean filterKind = kind != null && !kind.isBlank();
 
         List<Entry> matches = new ArrayList<>();
         for (Entry entry : entries)
         {
+            if (filterKind && !entry.target().kind().equals(kind))
+            {
+                continue;
+            }
             if (entry.search().contains(q))
             {
                 matches.add(entry);
@@ -75,9 +80,20 @@ final class JeiTargetIndex
         for (int i = 0; i < count; i++)
         {
             Entry entry = matches.get(i);
-            result.add(new TargetSuggestion(entry.target(), entry.label(), entry.completion()));
+            result.add(new TargetSuggestion(entry.target(), entry.label(), entry.id()));
         }
         return result;
+    }
+
+    IntentTarget recipeTarget(String id)
+    {
+        if (id == null)
+        {
+            return null;
+        }
+        String key = id.trim();
+        IntentTarget target = recipes.get(key);
+        return target != null ? target : recipes.get(key.toLowerCase(Locale.ROOT));
     }
 
     IntentTarget detect(String text)
@@ -194,7 +210,7 @@ final class JeiTargetIndex
 
             IntentTarget target = IntentTarget.of(IngredientKey.of(typeUid, uid));
             ingredients.put(uid, target);
-            entries.add(new Entry(target, uid, name + " (" + uid + ")", uid, search(uid, name)));
+            entries.add(new Entry(target, uid, name + " (" + uid + ")", search(uid, name)));
         }
     }
 
@@ -257,8 +273,7 @@ final class JeiTargetIndex
 
             IntentTarget target = IntentTarget.category(uid);
             categories.put(key, target);
-            entries.add(new Entry(target, key, "category: " + title + " (" + key + ")",
-                "category " + key, search(key, title)));
+            entries.add(new Entry(target, key, "category: " + title + " (" + key + ")", search(key, title)));
         }
     }
 
@@ -306,8 +321,7 @@ final class JeiTargetIndex
                     IntentTarget target = IntentTarget.of(typeUid, key);
                     recipes.put(key, target);
                     entries.add(new Entry(target, key,
-                        "recipe: " + typeUid + " # " + key, "recipe " + typeUid + " " + key,
-                        search(key, typeUid.toString())));
+                        "recipe: " + typeUid + " # " + key, search(key, typeUid.toString())));
                 }
                 catch (Throwable ignored)
                 {

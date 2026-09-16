@@ -129,15 +129,40 @@ public final class JeiAdapter implements ViewerAdapter
     }
 
     @Override
-    public List<TargetSuggestion> suggest(String query, int limit)
+    public List<TargetSuggestion> suggest(String query, String kind, int limit)
     {
-        return index().suggest(query, limit);
+        return index().suggest(query, kind, limit);
     }
 
     @Override
     public IntentTarget detect(String text)
     {
         return index().detect(text);
+    }
+
+    @Override
+    public IntentTarget ofKind(String kind, String id)
+    {
+        if (id == null || id.isBlank())
+        {
+            return null;
+        }
+        String value = id.trim();
+        if (kind == null || kind.isBlank())
+        {
+            return index().detect(value);
+        }
+        return switch (kind)
+        {
+            case "ingredient" -> ingredientTarget(value);
+            case "recipe" -> index().recipeTarget(value);
+            case "recipe_category" ->
+            {
+                ResourceLocation type = ResourceLocation.tryParse(value);
+                yield type == null ? null : IntentTarget.category(type);
+            }
+            default -> index().detect(value);
+        };
     }
 
     private JeiTargetIndex index()

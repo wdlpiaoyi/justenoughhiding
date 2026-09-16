@@ -19,7 +19,6 @@ import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -36,7 +35,7 @@ public final class HidingListScreen extends Screen
     private static final int TARGET_COLUMN = 1;
     private static final int NOTE_COLUMN = 3;
     private static final String[] SORT_MODES = {"target", "enabled", "note", "kind"};
-    private static final String TARGET_HINT = "Type an id (item / recipe / category auto-detected); prefix item/recipe/category to override";
+    private static final String TARGET_HINT = "Type an id; pick a type tab (Auto detects the kind)";
     private static final int SUGGEST_LIMIT = 40;
 
     private final List<Dropdown> dropdowns = new ArrayList<>();
@@ -55,6 +54,10 @@ public final class HidingListScreen extends Screen
 
     private ListEHidingEntry editingEntry;
     private int editingColumn = -1;
+    private IntentTarget originalTarget;
+    private String originalTargetText = "";
+    private int originalKindIndex;
+    private boolean suggestionsFrozen;
     private long lastClickTime;
     private ListEHidingEntry lastClickRow;
     private int lastClickColumn = -1;
@@ -322,7 +325,15 @@ public final class HidingListScreen extends Screen
 
     private void startTargetEdit(ListEHidingEntry entry)
     {
-        startEdit(entry, TARGET_COLUMN, targetText(entry.target()));
+        IntentTarget target = entry.target();
+        String id = targetId(target);
+        int kindIndex = kindIndexOf(target);
+        startEdit(entry, TARGET_COLUMN, id);
+        autocomplete.setKindIndex(kindIndex);
+        originalTarget = target;
+        originalTargetText = id;
+        originalKindIndex = kindIndex;
+        refreshSuggestions(id);
         setStatus(TARGET_HINT);
     }
 
@@ -334,11 +345,22 @@ public final class HidingListScreen extends Screen
         }
         if (editingColumn != TARGET_COLUMN)
         {
-            autocomplete.hide();
+            autocomplete.setActive(false);
             inlineEditor.setSuggestion("");
             return;
         }
-        autocomplete.setSuggestions(Adapters.active().suggest(text, SUGGEST_LIMIT));
+        autocomplete.setActive(true);
+        if (suggestionsFrozen)
+        {
+            updateGhostText(text);
+            return;
+        }
+        refreshSuggestions(text);
+    }
+
+    private void refreshSuggestions(String text)
+    {
+        autocomplete.setSuggestions(Adapters.active().suggest(text, autocomplete.getKindKey(), SUGGEST_LIMIT));
         positionAutocomplete();
         updateGhostText(text);
     }
@@ -372,8 +394,12 @@ public final class HidingListScreen extends Screen
             return;
         }
         String completion = suggestion.completion();
+        suggestionsFrozen = true;
         inlineEditor.setValue(completion);
         inlineEditor.setCursorPosition(completion.length());
+        suggestionsFrozen = false;
+        autocomplete.moveHighlight(1);
+        updateGhostText(completion);
     }
 
     private void positionAutocomplete()
@@ -407,7 +433,7 @@ public final class HidingListScreen extends Screen
         editingColumn = -1;
         inlineEditor.visible = false;
         inlineEditor.setSuggestion("");
-        autocomplete.hide();
+        autocomplete.setActive(false);
         setFocused(null);
         replace(entry, new ListEHidingEntry(suggestion.target(), entry.enabled(), entry.note()));
     }
@@ -479,16 +505,22 @@ public final class HidingListScreen extends Screen
         editingColumn = -1;
         inlineEditor.visible = false;
         inlineEditor.setSuggestion("");
-        autocomplete.hide();
+        autocomplete.setActive(false);
         setFocused(null);
 
         String text = inlineEditor.getValue();
         if (column == TARGET_COLUMN)
         {
-            IntentTarget parsed = parseTarget(text);
+            String id = text.trim();
+            int kindIndex = autocomplete.getKindIndex();
+            if (originalTarget != null && id.equals(originalTargetText) && kindIndex == originalKindIndex)
+            {
+                return;
+            }
+            IntentTarget parsed = parseTarget(id, kindIndex);
             if (parsed == null)
             {
-                setStatus("Invalid target: " + text);
+                setStatus("Unknown target: " + id);
                 return;
             }
             replace(entry, new ListEHidingEntry(parsed, entry.enabled(), entry.note()));
@@ -503,9 +535,10 @@ public final class HidingListScreen extends Screen
     {
         editingEntry = null;
         editingColumn = -1;
+        originalTarget = null;
         inlineEditor.visible = false;
         inlineEditor.setSuggestion("");
-        autocomplete.hide();
+        autocomplete.setActive(false);
         setFocused(null);
     }
 
@@ -517,59 +550,52 @@ public final class HidingListScreen extends Screen
         apply();
     }
 
-    private static String targetText(IntentTarget target)
+    private static String targetId(IntentTarget target)
     {
         if (target instanceof IntentTarget.Recipe recipe)
         {
-            return "recipe " + recipe.recipeType() + " " + recipe.recipeId();
+            return recipe.recipeId();
         }
         if (target instanceof IntentTarget.RecipeCategory category)
         {
-            return "category " + category.recipeType();
+            return category.recipeType().toString();
         }
         if (target instanceof IntentTarget.Ingredient ingredient)
         {
-            return "item " + ingredient.key().uid();
+            return ingredient.key().uid();
         }
         return "";
     }
 
-    private static IntentTarget parseTarget(String raw)
+    private static int kindIndexOf(IntentTarget target)
     {
-        String text = raw.trim();
-        if (text.isEmpty() || text.equalsIgnoreCase("unset"))
+        return switch (target.kind())
+        {
+            case "ingredient" -> 1;
+            case "recipe" -> 2;
+            case "recipe_category" -> 3;
+            default -> 0;
+        };
+    }
+
+    private static IntentTarget parseTarget(String id, int kindIndex)
+    {
+        if (id.isEmpty())
         {
             return IntentTarget.unset();
         }
+        return Adapters.active().ofKind(kindKey(kindIndex), id);
+    }
 
-        String lower = text.toLowerCase(Locale.ROOT);
-        if (lower.startsWith("category "))
+    private static String kindKey(int kindIndex)
+    {
+        return switch (kindIndex)
         {
-            ResourceLocation type = ResourceLocation.tryParse(text.substring("category ".length()).trim());
-            return type == null ? null : IntentTarget.category(type);
-        }
-        if (lower.startsWith("recipe "))
-        {
-            String rest = text.substring("recipe ".length()).trim();
-            int separator = rest.indexOf(' ');
-            if (separator <= 0)
-            {
-                return null;
-            }
-            ResourceLocation type = ResourceLocation.tryParse(rest.substring(0, separator).trim());
-            String recipeId = rest.substring(separator + 1).trim();
-            if (type == null || recipeId.isEmpty())
-            {
-                return null;
-            }
-            return IntentTarget.of(type, recipeId);
-        }
-
-        if (lower.startsWith("item "))
-        {
-            return Adapters.active().ingredientTarget(text.substring("item ".length()).trim());
-        }
-        return Adapters.active().detect(text);
+            case 1 -> "ingredient";
+            case 2 -> "recipe";
+            case 3 -> "recipe_category";
+            default -> "";
+        };
     }
 
     private void setStatus(String message)
@@ -693,6 +719,13 @@ public final class HidingListScreen extends Screen
 
         if (autocomplete != null && autocomplete.isVisible())
         {
+            int tab = autocomplete.tabAt(mouseX, mouseY);
+            if (tab >= 0)
+            {
+                autocomplete.setKindIndex(tab);
+                refreshSuggestions(inlineEditor.getValue());
+                return true;
+            }
             TargetSuggestion picked = autocomplete.mouseClicked(mouseX, mouseY);
             if (picked != null)
             {
@@ -754,32 +787,35 @@ public final class HidingListScreen extends Screen
                 cancelEdit();
                 return true;
             }
-            if (autocomplete != null && autocomplete.isVisible())
+            boolean hasSuggestions = autocomplete != null && autocomplete.hasSuggestions();
+            if (hasSuggestions && keyCode == GLFW.GLFW_KEY_DOWN)
             {
-                if (keyCode == GLFW.GLFW_KEY_DOWN)
-                {
-                    autocomplete.moveHighlight(1);
-                    return true;
-                }
-                if (keyCode == GLFW.GLFW_KEY_UP)
-                {
-                    autocomplete.moveHighlight(-1);
-                    return true;
-                }
-                if (keyCode == GLFW.GLFW_KEY_TAB)
+                autocomplete.moveHighlight(1);
+                return true;
+            }
+            if (hasSuggestions && keyCode == GLFW.GLFW_KEY_UP)
+            {
+                autocomplete.moveHighlight(-1);
+                return true;
+            }
+            if (keyCode == GLFW.GLFW_KEY_TAB)
+            {
+                if (hasSuggestions)
                 {
                     completeHighlighted();
-                    return true;
                 }
-                if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)
-                {
-                    acceptSuggestion(autocomplete.getHighlighted());
-                    return true;
-                }
+                return true;
             }
             if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)
             {
-                commitEdit();
+                if (hasSuggestions)
+                {
+                    acceptSuggestion(autocomplete.getHighlighted());
+                }
+                else
+                {
+                    commitEdit();
+                }
                 return true;
             }
         }
@@ -789,6 +825,14 @@ public final class HidingListScreen extends Screen
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta)
     {
+        if (editingEntry != null)
+        {
+            if (autocomplete != null && autocomplete.mouseScrolled(mouseX, mouseY, delta))
+            {
+                return true;
+            }
+            return true;
+        }
         if (autocomplete != null && autocomplete.isVisible()
             && autocomplete.mouseScrolled(mouseX, mouseY, delta))
         {
