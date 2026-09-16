@@ -134,7 +134,3 @@ JEH.apply()
 ```
 
 可选参数：`-PnoJei`、`-PnoKubeJS` 跳过对应依赖。
-
-## 致谢
-
-- 图标：ChatGPT（素材来源：这个刀子真甜、ZipZipPipe、上善无形）

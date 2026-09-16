@@ -62,6 +62,5 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
 ## Testing
 - Build, then `.\gradlew.bat runData` as a smoke test.
 - Hand-write test data to `build/libs/listehiding.json`, then copy it to
-  `config/jeh/listehiding.json` in the user's test pack
-  (`C:\Work\Minecraft\Modpack\versions\1.20.1-Forge-kubejs_testing`).
+  `config/jeh/listehiding.json` in the user's test instance (a client profile with JEI installed).
 - In-game entrypoints: `/jeh intents`, `/jeh list`; keybinds default unbound.

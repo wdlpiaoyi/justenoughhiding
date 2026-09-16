@@ -2,7 +2,6 @@ package com.wdlpiaoyi.justenoughhiding;
 
 import com.mojang.logging.LogUtils;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
-import com.wdlpiaoyi.justenoughhiding.viewer.RecipeViewerBackends;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
@@ -23,8 +22,6 @@ public final class JustEnoughHiding
         context.registerConfig(ModConfig.Type.CLIENT, JehConfig.SPEC, "jeh/client.toml");
         modEventBus.addListener((ModConfigEvent.Loading event) -> onConfigChanged(event));
         modEventBus.addListener((ModConfigEvent.Reloading event) -> onConfigChanged(event));
-
-        RecipeViewerBackends.logStatus();
     }
 
     private static void onConfigChanged(ModConfigEvent event)
