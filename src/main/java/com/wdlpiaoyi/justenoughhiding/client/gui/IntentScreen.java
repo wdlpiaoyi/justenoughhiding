@@ -10,7 +10,6 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 
 import java.nio.file.Path;
@@ -30,7 +29,6 @@ public final class IntentScreen extends Screen
     private final List<Intent> all = new ArrayList<>();
     private final List<Intent> view = new ArrayList<>();
     private final List<Dropdown> dropdowns = new ArrayList<>();
-    private final List<AbstractWidget> controls = new ArrayList<>();
 
     private EditBox search;
     private Button refreshButton;
@@ -55,65 +53,58 @@ public final class IntentScreen extends Screen
     protected void init()
     {
         dropdowns.clear();
-        controls.clear();
         all.clear();
         all.addAll(IntentRegistry.query().all());
 
-        search = new EditBox(this.font, MARGIN, TOP, Math.min(220, Math.max(120, this.width / 3)), ROW_HEIGHT, Component.literal("Search"));
+        int searchWidth = Math.min(220, Math.max(120, this.width / 3));
+        search = new EditBox(this.font, MARGIN, TOP, searchWidth, ROW_HEIGHT, Component.literal("Search"));
         search.setResponder(value -> apply());
-        addControl(search);
+        addRenderableWidget(search);
 
-        List<String> sortOptions = JehConfig.sortModes();
-        sourceDropdown = new Dropdown(this.font, search.getX() + search.getWidth() + 6, TOP, 150, ROW_HEIGHT,
-            optionList(intent -> intent.source().id()), "All", value -> apply());
-        kindDropdown = new Dropdown(this.font, sourceDropdown.getX() + 156, TOP, 160, ROW_HEIGHT,
-            optionList(intent -> intent.kind().name()), "All", value -> apply());
-        dropdowns.add(sourceDropdown);
-        dropdowns.add(kindDropdown);
+        int buttonX = search.getX() + search.getWidth() + 6;
 
-        int buttonY = TOP + ROW_HEIGHT + 4;
-        int buttonX = MARGIN;
-
-        refreshButton = Button.builder(Component.literal("Refresh"), b -> refresh()).bounds(buttonX, buttonY, 60, ROW_HEIGHT).build();
-        addControl(refreshButton);
+        refreshButton = Button.builder(Component.literal("Refresh"), b -> refresh()).bounds(buttonX, TOP, 60, ROW_HEIGHT).build();
+        addRenderableWidget(refreshButton);
         buttonX += 64;
 
-        sortDropdown = new Dropdown(this.font, buttonX, buttonY, 170, ROW_HEIGHT, sortOptions, sortOptions.get(0), value -> apply());
-        dropdowns.add(sortDropdown);
-        buttonX += 176;
-
-        exportViewButton = Button.builder(Component.literal("Export View"), b -> exportView()).bounds(buttonX, buttonY, 90, ROW_HEIGHT).build();
-        addControl(exportViewButton);
+        exportViewButton = Button.builder(Component.literal("Export View"), b -> exportView()).bounds(buttonX, TOP, 90, ROW_HEIGHT).build();
+        addRenderableWidget(exportViewButton);
         buttonX += 94;
 
-        exportAllButton = Button.builder(Component.literal("Export All"), b -> exportAll()).bounds(buttonX, buttonY, 84, ROW_HEIGHT).build();
-        addControl(exportAllButton);
+        exportAllButton = Button.builder(Component.literal("Export All"), b -> exportAll()).bounds(buttonX, TOP, 84, ROW_HEIGHT).build();
+        addRenderableWidget(exportAllButton);
         buttonX += 88;
 
-        copyUidButton = Button.builder(Component.literal("Copy UID"), b -> copy(true)).bounds(buttonX, buttonY, 74, ROW_HEIGHT).build();
-        addControl(copyUidButton);
+        copyUidButton = Button.builder(Component.literal("Copy UID"), b -> copy(true)).bounds(buttonX, TOP, 74, ROW_HEIGHT).build();
+        addRenderableWidget(copyUidButton);
         buttonX += 78;
 
-        copyLineButton = Button.builder(Component.literal("Copy Line"), b -> copy(false)).bounds(buttonX, buttonY, 78, ROW_HEIGHT).build();
-        addControl(copyLineButton);
+        copyLineButton = Button.builder(Component.literal("Copy Line"), b -> copy(false)).bounds(buttonX, TOP, 78, ROW_HEIGHT).build();
+        addRenderableWidget(copyLineButton);
         buttonX += 82;
 
-        Button closeButton = Button.builder(Component.literal("Close"), b -> onClose()).bounds(buttonX, buttonY, 54, ROW_HEIGHT).build();
-        addControl(closeButton);
+        Button closeButton = Button.builder(Component.literal("Close"), b -> onClose()).bounds(buttonX, TOP, 54, ROW_HEIGHT).build();
+        addRenderableWidget(closeButton);
 
-        int listTop = buttonY + ROW_HEIGHT + 6;
+        int dropdownY = TOP + ROW_HEIGHT + 4;
+        List<String> sortOptions = JehConfig.sortModes();
+        sourceDropdown = new Dropdown(this.font, MARGIN, dropdownY, 150, ROW_HEIGHT,
+            optionList(intent -> intent.source().id()), "All", value -> apply());
+        kindDropdown = new Dropdown(this.font, MARGIN + 156, dropdownY, 160, ROW_HEIGHT,
+            optionList(intent -> intent.kind().name()), "All", value -> apply());
+        sortDropdown = new Dropdown(this.font, MARGIN + 322, dropdownY, 170, ROW_HEIGHT,
+            sortOptions, sortOptions.get(0), value -> apply());
+        dropdowns.add(sourceDropdown);
+        dropdowns.add(kindDropdown);
+        dropdowns.add(sortDropdown);
+
+        int listTop = dropdownY + ROW_HEIGHT + 6;
         int listHeight = Math.max(20, this.height - MARGIN - listTop);
         list = new IntentList(this.font);
         list.setBounds(MARGIN, listTop, this.width - MARGIN * 2, listHeight);
         addRenderableOnly(list);
 
         apply();
-    }
-
-    private void addControl(AbstractWidget widget)
-    {
-        controls.add(widget);
-        addRenderableWidget(widget);
     }
 
     private List<String> optionList(Function<Intent, String> extractor)
@@ -229,26 +220,17 @@ public final class IntentScreen extends Screen
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick)
     {
         Dropdown openDropdown = openDropdown();
-        Rect2i popup = openDropdown == null ? null : openDropdown.popupBounds();
-
-        for (AbstractWidget control : controls)
-        {
-            control.visible = popup == null || !intersects(control, popup);
-        }
-
-        int renderMouseX = openDropdown == null ? mouseX : -1;
-        int renderMouseY = openDropdown == null ? mouseY : -1;
+        list.setHoverEnabled(openDropdown == null);
 
         this.renderBackground(guiGraphics);
-        super.render(guiGraphics, renderMouseX, renderMouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
 
         for (Dropdown dropdown : dropdowns)
         {
-            if (dropdown == openDropdown || (popup != null && intersects(dropdown.bounds(), popup)))
+            if (dropdown != openDropdown)
             {
-                continue;
+                dropdown.render(guiGraphics, mouseX, mouseY, partialTick);
             }
-            dropdown.render(guiGraphics, mouseX, mouseY, partialTick);
         }
         if (openDropdown != null)
         {
@@ -273,7 +255,7 @@ public final class IntentScreen extends Screen
 
     private void drawSearchHint(GuiGraphics guiGraphics)
     {
-        if (!search.visible || !search.getValue().isEmpty())
+        if (!search.getValue().isEmpty())
         {
             return;
         }
@@ -374,18 +356,6 @@ public final class IntentScreen extends Screen
     {
         list.mouseReleased();
         return super.mouseReleased(mouseX, mouseY, button);
-    }
-
-    private static boolean intersects(AbstractWidget widget, Rect2i rect)
-    {
-        return widget.getX() < rect.getX() + rect.getWidth() && widget.getX() + widget.getWidth() > rect.getX()
-            && widget.getY() < rect.getY() + rect.getHeight() && widget.getY() + widget.getHeight() > rect.getY();
-    }
-
-    private static boolean intersects(Rect2i a, Rect2i b)
-    {
-        return a.getX() < b.getX() + b.getWidth() && a.getX() + a.getWidth() > b.getX()
-            && a.getY() < b.getY() + b.getHeight() && a.getY() + a.getHeight() > b.getY();
     }
 
     private static boolean isOver(AbstractWidget widget, double mouseX, double mouseY)

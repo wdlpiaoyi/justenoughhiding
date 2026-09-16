@@ -26,6 +26,7 @@ public final class IntentList implements Renderable
     private Intent selected;
     private int scroll;
     private boolean dragging;
+    private boolean hoverEnabled = true;
 
     public IntentList(Font font)
     {
@@ -56,6 +57,11 @@ public final class IntentList implements Renderable
         return selected;
     }
 
+    public void setHoverEnabled(boolean hoverEnabled)
+    {
+        this.hoverEnabled = hoverEnabled;
+    }
+
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick)
     {
@@ -73,7 +79,7 @@ public final class IntentList implements Renderable
             int rowY = y + i * ROW_HEIGHT;
             int rowBottom = rowY + ROW_HEIGHT;
             int rowRight = x + width - SCROLLBAR_WIDTH;
-            boolean hovered = mouseX >= x && mouseX < rowRight && mouseY >= rowY && mouseY < rowBottom;
+            boolean hovered = hoverEnabled && mouseX >= x && mouseX < rowRight && mouseY >= rowY && mouseY < rowBottom;
 
             Intent intent = rows.get(index);
             if (intent == selected)
