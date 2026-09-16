@@ -1,6 +1,7 @@
 package com.wdlpiaoyi.justenoughhiding.client.viewer;
 
 import com.wdlpiaoyi.justenoughhiding.client.gui.column.Column;
+import com.wdlpiaoyi.justenoughhiding.intent.Intent;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 
 import java.util.ArrayList;
@@ -47,7 +48,7 @@ public final class Adapters
         }
 
         @Override
-        public List<Column> columns()
+        public List<Column<Intent>> columns()
         {
             return DefaultColumns.withoutIcon();
         }

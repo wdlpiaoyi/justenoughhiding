@@ -1,6 +1,7 @@
 package com.wdlpiaoyi.justenoughhiding.client.viewer;
 
 import com.wdlpiaoyi.justenoughhiding.client.gui.column.Column;
+import com.wdlpiaoyi.justenoughhiding.intent.Intent;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 
 import java.util.List;
@@ -18,7 +19,7 @@ public interface ViewerAdapter
 
     // ---- presentation (used by the intent viewer GUI) ----
 
-    List<Column> columns();
+    List<Column<Intent>> columns();
 
     IconRenderer icon(IntentTarget target);
 

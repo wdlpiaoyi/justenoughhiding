@@ -6,6 +6,7 @@ import com.wdlpiaoyi.justenoughhiding.client.gui.column.Column;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.DefaultColumns;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.IconRenderer;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.ViewerAdapter;
+import com.wdlpiaoyi.justenoughhiding.intent.Intent;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentRegistry;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import com.wdlpiaoyi.justenoughhiding.jei.JeiReveal;
@@ -47,7 +48,7 @@ public final class JeiAdapter implements ViewerAdapter
     }
 
     @Override
-    public List<Column> columns()
+    public List<Column<Intent>> columns()
     {
         return DefaultColumns.withIcon(intent -> icon(intent.target()));
     }

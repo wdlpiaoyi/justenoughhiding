@@ -1,14 +1,14 @@
 package com.wdlpiaoyi.justenoughhiding.client.gui;
 
 import com.wdlpiaoyi.justenoughhiding.client.gui.column.Column;
-import com.wdlpiaoyi.justenoughhiding.intent.Intent;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
 
 import java.util.List;
 
-public final class IntentList implements Renderable
+/** A scrollable, selectable list of rows rendered through {@link Column}s. */
+public final class RowList<T> implements Renderable
 {
     private static final int ROW_HEIGHT = 18;
     private static final int SCROLLBAR_WIDTH = 6;
@@ -21,14 +21,14 @@ public final class IntentList implements Renderable
     private int width;
     private int height;
 
-    private List<Column> columns = List.of();
-    private List<Intent> rows = List.of();
-    private Intent selected;
+    private List<Column<T>> columns = List.of();
+    private List<T> rows = List.of();
+    private T selected;
     private int scroll;
     private boolean dragging;
     private boolean hoverEnabled = true;
 
-    public IntentList(Font font)
+    public RowList(Font font)
     {
         this.font = font;
     }
@@ -42,12 +42,12 @@ public final class IntentList implements Renderable
         this.scroll = clampScroll(this.scroll);
     }
 
-    public void setColumns(List<Column> columns)
+    public void setColumns(List<Column<T>> columns)
     {
         this.columns = columns;
     }
 
-    public void setRows(List<Intent> rows)
+    public void setRows(List<T> rows)
     {
         this.rows = rows;
         this.scroll = clampScroll(this.scroll);
@@ -57,7 +57,7 @@ public final class IntentList implements Renderable
         }
     }
 
-    public Intent getSelected()
+    public T getSelected()
     {
         return selected;
     }
@@ -86,8 +86,8 @@ public final class IntentList implements Renderable
             int rowRight = x + width - SCROLLBAR_WIDTH;
             boolean hovered = hoverEnabled && mouseX >= x && mouseX < rowRight && mouseY >= rowY && mouseY < rowBottom;
 
-            Intent intent = rows.get(index);
-            if (intent == selected)
+            T row = rows.get(index);
+            if (row == selected)
             {
                 guiGraphics.fill(x, rowY, rowRight, rowBottom, 0xFF3050A0);
             }
@@ -95,14 +95,14 @@ public final class IntentList implements Renderable
             {
                 guiGraphics.fill(x, rowY, rowRight, rowBottom, 0x40FFFFFF);
             }
-            renderColumns(guiGraphics, intent, rowY, rowRight - x);
+            renderColumns(guiGraphics, row, rowY, rowRight - x);
         }
         guiGraphics.disableScissor();
 
         drawScrollbar(guiGraphics);
     }
 
-    private void renderColumns(GuiGraphics guiGraphics, Intent intent, int rowTop, int rowWidth)
+    private void renderColumns(GuiGraphics guiGraphics, T row, int rowTop, int rowWidth)
     {
         if (columns.isEmpty())
         {
@@ -112,7 +112,7 @@ public final class IntentList implements Renderable
         int usableWidth = Math.max(MIN_FLEX_WIDTH, rowWidth - 4);
         int fixedWidth = 0;
         int flexCount = 0;
-        for (Column column : columns)
+        for (Column<T> column : columns)
         {
             if (column.flexible())
             {
@@ -126,10 +126,10 @@ public final class IntentList implements Renderable
         int flexWidth = flexCount > 0 ? Math.max(MIN_FLEX_WIDTH, (usableWidth - fixedWidth) / flexCount) : 0;
 
         int left = x + 2;
-        for (Column column : columns)
+        for (Column<T> column : columns)
         {
             int columnWidth = column.flexible() ? flexWidth : column.width();
-            column.render(guiGraphics, font, intent, left, rowTop, columnWidth, ROW_HEIGHT);
+            column.render(guiGraphics, font, row, left, rowTop, columnWidth, ROW_HEIGHT);
             left += columnWidth;
         }
     }
@@ -191,7 +191,7 @@ public final class IntentList implements Renderable
         return true;
     }
 
-    public Intent intentAt(int mouseX, int mouseY)
+    public T rowAt(int mouseX, int mouseY)
     {
         int barX = x + width - SCROLLBAR_WIDTH;
         if (mouseX < x || mouseX >= barX || mouseY < y || mouseY >= y + height)
@@ -202,7 +202,7 @@ public final class IntentList implements Renderable
         return (index >= 0 && index < rows.size()) ? rows.get(index) : null;
     }
 
-    public Intent intentAtIcon(int mouseX, int mouseY)
+    public T rowAtIcon(int mouseX, int mouseY)
     {
         if (columns.isEmpty() || !columns.get(0).isIcon())
         {

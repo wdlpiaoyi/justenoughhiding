@@ -23,6 +23,14 @@ public final class JehKeyMappings
         CATEGORY
     );
 
+    public static final KeyMapping OPEN_LIST = new KeyMapping(
+        "key.justenoughhiding.open_list",
+        KeyConflictContext.UNIVERSAL,
+        InputConstants.Type.KEYSYM,
+        GLFW.GLFW_KEY_UNKNOWN,
+        CATEGORY
+    );
+
     private JehKeyMappings()
     {
     }
@@ -31,5 +39,6 @@ public final class JehKeyMappings
     public static void register(RegisterKeyMappingsEvent event)
     {
         event.register(OPEN_INTENTS);
+        event.register(OPEN_LIST);
     }
 }

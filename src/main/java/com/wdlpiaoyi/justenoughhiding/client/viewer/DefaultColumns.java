@@ -14,19 +14,19 @@ public final class DefaultColumns
     {
     }
 
-    public static List<Column> withoutIcon()
+    public static List<Column<Intent>> withoutIcon()
     {
         return List.of(
-            Columns.fixed(96, intent -> intent.kind().name(), intent -> intent.kind().isHide() ? 0xFFFF7070 : 0xFF70FF70),
-            Columns.fixed(110, intent -> intent.source().id(), intent -> 0xFFB0B0B0),
-            Columns.flexible(intent -> intent.target().describe(), intent -> 0xFFE0E0E0),
-            Columns.fixed(34, intent -> "x" + intent.count(), intent -> 0xFF808080)
+            Columns.<Intent>fixed(96, intent -> intent.kind().name(), intent -> intent.kind().isHide() ? 0xFFFF7070 : 0xFF70FF70),
+            Columns.<Intent>fixed(110, intent -> intent.source().id(), intent -> 0xFFB0B0B0),
+            Columns.<Intent>flexible(intent -> intent.target().describe(), intent -> 0xFFE0E0E0),
+            Columns.<Intent>fixed(34, intent -> "x" + intent.count(), intent -> 0xFF808080)
         );
     }
 
-    public static List<Column> withIcon(Function<Intent, IconRenderer> icons)
+    public static List<Column<Intent>> withIcon(Function<Intent, IconRenderer> icons)
     {
-        List<Column> columns = new ArrayList<>();
+        List<Column<Intent>> columns = new ArrayList<>();
         columns.add(Columns.icon(18, icons));
         columns.addAll(withoutIcon());
         return List.copyOf(columns);

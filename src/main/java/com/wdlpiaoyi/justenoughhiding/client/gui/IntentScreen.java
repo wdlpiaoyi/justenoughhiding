@@ -43,7 +43,7 @@ public final class IntentScreen extends Screen
     private Dropdown sourceDropdown;
     private Dropdown kindDropdown;
     private Dropdown sortDropdown;
-    private IntentList list;
+    private RowList<Intent> list;
 
     private String status = "";
     private long statusUntil;
@@ -119,7 +119,7 @@ public final class IntentScreen extends Screen
 
         int listTop = dropdownY + ROW_HEIGHT + 6;
         int listHeight = Math.max(20, this.height - MARGIN - listTop);
-        list = new IntentList(this.font);
+        list = new RowList<>(this.font);
         list.setBounds(MARGIN, listTop, this.width - MARGIN * 2, listHeight);
         list.setColumns(Adapters.active().columns());
         addRenderableOnly(list);
@@ -316,7 +316,7 @@ public final class IntentScreen extends Screen
             }
         }
 
-        Intent hovered = list.intentAt(mouseX, mouseY);
+        Intent hovered = list.rowAt(mouseX, mouseY);
         if (hovered == null)
         {
             return;
@@ -427,8 +427,8 @@ public final class IntentScreen extends Screen
         }
 
         Intent hovered = JehConfig.bookmarkTarget() == JehConfig.BookmarkTarget.ROW
-            ? list.intentAt(lastMouseX, lastMouseY)
-            : list.intentAtIcon(lastMouseX, lastMouseY);
+            ? list.rowAt(lastMouseX, lastMouseY)
+            : list.rowAtIcon(lastMouseX, lastMouseY);
         if (hovered == null || !adapter.bookmark(hovered.target()))
         {
             return false;

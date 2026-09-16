@@ -1,14 +1,13 @@
 package com.wdlpiaoyi.justenoughhiding.client.gui.column;
 
-import com.wdlpiaoyi.justenoughhiding.intent.Intent;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
- * One column of the intent list. A {@code ViewerAdapter} supplies the list of columns,
- * so new viewers (or new target kinds) can change the layout without touching the GUI.
+ * One column of a {@link com.wdlpiaoyi.justenoughhiding.client.gui.RowList}.
+ * Generic over the row type so the same list/columns can render intents, the hiding list, etc.
  */
-public interface Column
+public interface Column<T>
 {
     int FLEXIBLE = -1;
 
@@ -26,5 +25,5 @@ public interface Column
         return false;
     }
 
-    void render(GuiGraphics guiGraphics, Font font, Intent intent, int left, int top, int width, int height);
+    void render(GuiGraphics guiGraphics, Font font, T row, int left, int top, int width, int height);
 }

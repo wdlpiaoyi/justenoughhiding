@@ -1,7 +1,6 @@
 package com.wdlpiaoyi.justenoughhiding.client.gui.column;
 
 import com.wdlpiaoyi.justenoughhiding.client.viewer.IconRenderer;
-import com.wdlpiaoyi.justenoughhiding.intent.Intent;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -13,9 +12,9 @@ public final class Columns
     {
     }
 
-    public static Column icon(int width, Function<Intent, IconRenderer> icons)
+    public static <T> Column<T> icon(int width, Function<T, IconRenderer> icons)
     {
-        return new Column()
+        return new Column<>()
         {
             @Override
             public int width()
@@ -30,9 +29,9 @@ public final class Columns
             }
 
             @Override
-            public void render(GuiGraphics guiGraphics, Font font, Intent intent, int left, int top, int columnWidth, int height)
+            public void render(GuiGraphics guiGraphics, Font font, T row, int left, int top, int columnWidth, int height)
             {
-                IconRenderer icon = icons.apply(intent);
+                IconRenderer icon = icons.apply(row);
                 if (icon != null && !icon.isEmpty())
                 {
                     icon.render(guiGraphics, font, left + 1, top + (height - 16) / 2);
@@ -41,9 +40,9 @@ public final class Columns
         };
     }
 
-    public static Column fixed(int width, Function<Intent, String> text, Function<Intent, Integer> color)
+    public static <T> Column<T> fixed(int width, Function<T, String> text, Function<T, Integer> color)
     {
-        return new Column()
+        return new Column<>()
         {
             @Override
             public int width()
@@ -52,16 +51,16 @@ public final class Columns
             }
 
             @Override
-            public void render(GuiGraphics guiGraphics, Font font, Intent intent, int left, int top, int columnWidth, int height)
+            public void render(GuiGraphics guiGraphics, Font font, T row, int left, int top, int columnWidth, int height)
             {
-                guiGraphics.drawString(font, fit(font, text.apply(intent), columnWidth), left, top + (height - 8) / 2, color.apply(intent), false);
+                guiGraphics.drawString(font, fit(font, text.apply(row), columnWidth), left, top + (height - 8) / 2, color.apply(row), false);
             }
         };
     }
 
-    public static Column flexible(Function<Intent, String> text, Function<Intent, Integer> color)
+    public static <T> Column<T> flexible(Function<T, String> text, Function<T, Integer> color)
     {
-        return new Column()
+        return new Column<>()
         {
             @Override
             public int width()
@@ -70,9 +69,9 @@ public final class Columns
             }
 
             @Override
-            public void render(GuiGraphics guiGraphics, Font font, Intent intent, int left, int top, int columnWidth, int height)
+            public void render(GuiGraphics guiGraphics, Font font, T row, int left, int top, int columnWidth, int height)
             {
-                guiGraphics.drawString(font, fit(font, text.apply(intent), columnWidth), left, top + (height - 8) / 2, color.apply(intent), false);
+                guiGraphics.drawString(font, fit(font, text.apply(row), columnWidth), left, top + (height - 8) / 2, color.apply(row), false);
             }
         };
     }
