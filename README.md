@@ -1,0 +1,140 @@
+# Just Enough Hiding (JEH)
+
+一个 Minecraft Forge 1.20.1 的**客户端**模组：记录「是谁、出于什么原因隐藏了 JEI 的内容」，把被隐藏的东西揭示出来，并允许你用一份本地列表把内容从 JEI 里隐藏掉——方便整合包作者统一管理 recipe viewer 内容的隐藏情况。
+
+- 依赖：[JEI](https://www.curseforge.com/minecraft/mc-mods/jei)（可选，未安装时模组不做事）
+- 可选联动：[KubeJS](https://kubejs.com/)（用脚本读写隐藏列表）
+- 许可：MIT
+
+## 功能
+
+- **Reveal（揭示）**：JEI 启动时，把被标签 / JEI 编辑模式 / 黑名单隐藏的 ingredient 重新显示；把被移除或缺失的 ingredient 补回；把被隐藏的配方与配方类别取消隐藏。
+- **Intent 记录**：记录其它模组、JEI 自身、服务端等对 JEI 内容的隐藏 / 显示操作，并提供查看界面（含来源、次数、时间等）。
+- **ListEHiding（隐藏列表）**：你自己维护的一份列表，JEHide 会按它把匹配内容从 JEI 中隐藏。支持批量选择 / 开关 / 删除。
+- **类型与匹配**：物品、流体、化学物等所有 JEI ingredient 类型；配方；配方类别；标签；以及通配符 / 正则。
+- **统一管理**：JEHide 同时也会读取记录下来的 hide 类 intent，等效于「先揭示、再按列表 + intent 重新隐藏」。
+
+## 配置文件（`config/jeh/`）
+
+| 文件 | 说明 |
+| --- | --- |
+| `client.toml` | 模组设置（见下） |
+| `listehiding.json` | 隐藏列表，**需要手动编写/编辑**，模组不会自动生成 |
+| `intentoverrides.json` | 每条 intent 是否参与隐藏（由 GUI 里 Enable/Disable 写入） |
+
+`client.toml` 主要项：
+
+```toml
+[intentRecording]
+enabled = true      # 是否记录 intent
+
+[reveal]
+enabled = true      # 启动时是否揭示被隐藏内容
+
+[jehide]
+enabled = true      # 是否按 listehiding（+ intent）隐藏
+applyIntents = true # 是否把记录的 hide 类 intent 也当作隐藏规则
+
+[intentView]
+sortModes = ["source,kind,target", "kind,source,target", "target", "count:desc", "sequence"]
+bookmarkTarget = "ICON" # 书签键作用于 ICON 还是 ROW
+```
+
+## `listehiding.json` 格式
+
+根对象是 `{ "entries": [ ... ] }`。每条至少要有 `kind`，`enabled`（默认 `true`）、`note`、`priority`（默认 `0`）可选。
+
+```json
+{
+  "entries": [
+    { "kind": "ingredient", "typeUid": "minecraft:item_stack", "uid": "minecraft:stone", "enabled": true, "note": "", "priority": 0 },
+    { "kind": "tag", "tag": "minecraft:logs", "enabled": true },
+    { "kind": "recipe", "recipeType": "minecraft:crafting", "recipeId": "minecraft:stick", "enabled": true },
+    { "kind": "recipe_category", "recipeType": "minecraft:crafting", "enabled": true },
+    { "kind": "pattern", "scope": "recipe_category", "pattern": "minecraft:*", "mode": "glob", "enabled": true },
+    { "kind": "pattern", "scope": "", "pattern": "^minecraft:.*_ore$", "mode": "regex", "enabled": true },
+    { "kind": "unset", "enabled": true }
+  ]
+}
+```
+
+- `kind = "ingredient"`：`typeUid` 是 JEI ingredient 类型 uid（如 `minecraft:item_stack`、`fluid_stack`、化学物类型），`uid` 是该类型的唯一 id。
+- `kind = "tag"`：`tag` 为标签 id（不含 `#`）。
+- `kind = "recipe"` / `"recipe_category"`：`recipeType` 为配方类型，`recipeId` 为配方 id。
+- `kind = "pattern"`：`scope` 取值同编辑器类型标签（`""` 表示任意类型、`ingredient|<typeUid>`、`recipe`、`recipe_category`、`tag`），`pattern` 为正文，`mode` 为 `glob` 或 `regex`。
+- `kind = "unset"`：空占位（编辑框留空即此）。
+
+## 游戏内用法
+
+命令：
+
+- `/jeh intents`：打开 intent 查看器
+- `/jeh list`：打开隐藏列表编辑器
+
+按键（默认未绑定）：`key.justenoughhiding.open_intents`、`key.justenoughhiding.open_list`。
+
+**隐藏列表编辑器**（`/jeh list`）：
+
+- `New Entry` 新建空白条目；`Save` 写盘并立即重应用；`Refresh` 需点两次（丢弃内存改动并重读文件）。
+- 搜索框 + 类型 / 状态 / 排序下拉，`Desc` 反向排序。
+- 双击某个单元格直接编辑：**目标** / **优先级** / **备注**。
+- 右键菜单：Enable/Disable、Edit target / note / priority、Delete（二次确认）。
+- 多选：`Ctrl` 逐条切换、`Shift` 选择区间；多选后右键可批量 Enable / Disable / Delete（删除需点三次确认）。
+- 灰色的行是来自 intent 的条目，只读、只能 Enable/Disable；备注会标注来源（如 `intent + malum`）。开启 JEI 编辑模式时，来自编辑模式的 intent 会暂停应用，并在备注标注 `(edit mode paused)`。
+
+**编辑目标**：编辑框只填 id，用顶部标签选择类型（`Auto` 会自动识别物品 / 标签 / 通配符 / 配方 / 类别）。
+
+- `Auto` 下输入 `minecraft:*` → 通配符（glob），`?` 匹配单字符。
+- `~` 开头为正则，如 `~^minecraft:.*_ore$`。
+- `#` 开头为标签，如 `#minecraft:logs`。
+- 也可显式用 `item` / `recipe` / `category` 前缀覆盖类型。
+
+## KubeJS 联动
+
+把脚本放到 `kubejs/client_scripts/`，使用全局对象 `JEH`：
+
+```js
+// 自动识别（物品 / #标签 / 通配符 / 配方 / 类别）
+JEH.add('minecraft:stone')
+JEH.add('#minecraft:logs')
+JEH.add('minecraft:*')
+
+// 显式指定
+JEH.addItem('minecraft:stone')
+JEH.addTag('minecraft:logs')
+JEH.addPattern('minecraft:*')
+JEH.addRecipe('minecraft:crafting', 'minecraft:stick')
+JEH.addCategory('minecraft:crafting')
+
+// 备注 / 优先级（可选参数）
+JEH.add('minecraft:diamond', '我的备注', 10)
+
+// 编辑
+JEH.remove('minecraft:stone')      // 返回删除数量
+JEH.setEnabled('minecraft:stone', false)
+JEH.clear()
+JEH.size()
+JEH.list()
+
+// 持久化与生效
+JEH.save()    // 写入 listehiding.json；不调用则只在本局内存生效
+JEH.reload()
+JEH.apply()
+```
+
+脚本添加的条目，备注会标注 `kubejs(unsaved)`（未写盘）或 `kubejs(saved)`（已写盘）。脚本每次启动都会重跑；若想让脚本完全接管列表，先 `JEH.clear()` 再添加，避免跨启动累积。
+
+## 从源码构建
+
+需要 JDK 17。Windows：
+
+```powershell
+.\gradlew.bat build        # 产物：build\libs\justenoughhiding-<version>.jar
+.\gradlew.bat runData      # 冒烟测试
+```
+
+可选参数：`-PnoJei`、`-PnoKubeJS` 跳过对应依赖。
+
+## 致谢
+
+- 图标：ChatGPT（素材来源：这个刀子真甜、ZipZipPipe、上善无形）
