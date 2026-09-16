@@ -1,6 +1,7 @@
 package com.wdlpiaoyi.justenoughhiding.client.gui;
 
 import com.wdlpiaoyi.justenoughhiding.client.gui.column.Columns;
+import com.wdlpiaoyi.justenoughhiding.client.gui.widget.Dropdown;
 import com.wdlpiaoyi.justenoughhiding.client.gui.widget.PopupMenu;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.Adapters;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.IconRenderer;
@@ -18,7 +19,10 @@ import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
+import java.util.TreeSet;
 
 public final class HidingListScreen extends Screen
 {
@@ -26,13 +30,26 @@ public final class HidingListScreen extends Screen
     private static final int ROW_HEIGHT = 20;
     private static final int TOP = 32;
     private static final int NOTE_COLUMN = 3;
+    private static final String[] SORT_MODES = {"target", "enabled", "note", "kind"};
+
+    private final List<Dropdown> dropdowns = new ArrayList<>();
 
     private RowList<ListEHidingEntry> list;
     private EditBox noteEditor;
+    private EditBox search;
+    private Dropdown kindDropdown;
+    private Dropdown stateDropdown;
+    private Dropdown sortDropdown;
+    private Button refreshButton;
+    private boolean refreshArmed;
+
     private ListEHidingEntry editingEntry;
     private PopupMenu menu;
     private int menuX;
     private int menuY;
+
+    private String status = "";
+    private long statusUntil;
 
     public HidingListScreen()
     {
@@ -43,6 +60,8 @@ public final class HidingListScreen extends Screen
     protected void init()
     {
         ViewerAdapter adapter = Adapters.active();
+        dropdowns.clear();
+        refreshArmed = false;
 
         int buttonX = MARGIN;
 
@@ -52,18 +71,44 @@ public final class HidingListScreen extends Screen
         addRenderableWidget(newButton);
         buttonX += 80;
 
-        Button refreshButton = Button.builder(Component.literal("Refresh"), b -> refresh())
-            .tooltip(Tooltip.create(Component.literal("Discard in-memory changes and re-read config/jeh/listehiding.json")))
-            .bounds(buttonX, TOP, 60, ROW_HEIGHT).build();
+        Button saveButton = Button.builder(Component.literal("Save"), b -> save())
+            .tooltip(Tooltip.create(Component.literal("Write changes to config/jeh/listehiding.json")))
+            .bounds(buttonX, TOP, 54, ROW_HEIGHT).build();
+        addRenderableWidget(saveButton);
+        buttonX += 58;
+
+        refreshButton = Button.builder(Component.literal("Refresh"), b -> onRefreshClicked())
+            .tooltip(Tooltip.create(Component.literal("Discard in-memory changes and re-read the file (click twice)")))
+            .bounds(buttonX, TOP, 70, ROW_HEIGHT).build();
         addRenderableWidget(refreshButton);
-        buttonX += 64;
+        buttonX += 74;
 
         Button closeButton = Button.builder(Component.literal("Close"), b -> onClose())
             .tooltip(Tooltip.create(Component.literal("Save and close")))
             .bounds(buttonX, TOP, 54, ROW_HEIGHT).build();
         addRenderableWidget(closeButton);
 
-        int listTop = TOP + ROW_HEIGHT + 6;
+        int controlsY = TOP + ROW_HEIGHT + 4;
+
+        search = new EditBox(this.font, MARGIN, controlsY, Math.min(200, Math.max(120, this.width / 4)), ROW_HEIGHT, Component.literal("Search"));
+        search.setHint(Component.literal("Search"));
+        search.setResponder(value -> apply());
+        addRenderableWidget(search);
+
+        int dropdownX = search.getX() + search.getWidth() + 6;
+        kindDropdown = new Dropdown(this.font, dropdownX, controlsY, 150, ROW_HEIGHT, kindOptions(), "All", value -> apply())
+            .tooltip(Component.literal("Filter by target kind"));
+        dropdownX += 156;
+        stateDropdown = new Dropdown(this.font, dropdownX, controlsY, 110, ROW_HEIGHT, List.of("All", "Enabled", "Disabled"), "All", value -> apply())
+            .tooltip(Component.literal("Filter by enabled state"));
+        dropdownX += 116;
+        sortDropdown = new Dropdown(this.font, dropdownX, controlsY, 130, ROW_HEIGHT, List.of(SORT_MODES), "target", value -> apply())
+            .tooltip(Component.literal("Sort order"));
+        dropdowns.add(kindDropdown);
+        dropdowns.add(stateDropdown);
+        dropdowns.add(sortDropdown);
+
+        int listTop = controlsY + ROW_HEIGHT + 6;
         int listHeight = Math.max(20, this.height - MARGIN - listTop);
         list = new RowList<>(this.font);
         list.setBounds(MARGIN, listTop, this.width - MARGIN * 2, listHeight);
@@ -82,32 +127,123 @@ public final class HidingListScreen extends Screen
         noteEditor.visible = false;
         addRenderableWidget(noteEditor);
 
-        refreshList();
+        apply();
+    }
+
+    private List<String> kindOptions()
+    {
+        TreeSet<String> kinds = new TreeSet<>();
+        for (ListEHidingEntry entry : ListEHiding.get().entries())
+        {
+            kinds.add(entry.target().kind());
+        }
+        List<String> options = new ArrayList<>();
+        options.add("All");
+        options.addAll(kinds);
+        return options;
+    }
+
+    private void apply()
+    {
+        if (search == null || kindDropdown == null || stateDropdown == null || sortDropdown == null)
+        {
+            return;
+        }
+
+        String query = search.getValue().trim().toLowerCase(Locale.ROOT);
+        String kind = kindDropdown.getValue();
+        String state = stateDropdown.getValue();
+
+        List<ListEHidingEntry> view = new ArrayList<>();
+        for (ListEHidingEntry entry : ListEHiding.get().entries())
+        {
+            if (!"All".equals(kind) && !entry.target().kind().equals(kind))
+            {
+                continue;
+            }
+            if ("Enabled".equals(state) && !entry.enabled())
+            {
+                continue;
+            }
+            if ("Disabled".equals(state) && entry.enabled())
+            {
+                continue;
+            }
+            if (!query.isEmpty())
+            {
+                String haystack = (entry.target().describe() + " " + entry.target().kind() + " "
+                    + (entry.enabled() ? "enabled" : "disabled") + " " + entry.note())
+                    .toLowerCase(Locale.ROOT);
+                if (!haystack.contains(query))
+                {
+                    continue;
+                }
+            }
+            view.add(entry);
+        }
+        view.sort(comparator(sortDropdown.getValue()));
+        list.setRows(view);
+    }
+
+    private static Comparator<ListEHidingEntry> comparator(String mode)
+    {
+        return switch (mode)
+        {
+            case "enabled" -> Comparator.comparing(ListEHidingEntry::enabled);
+            case "note" -> Comparator.comparing(ListEHidingEntry::note, String.CASE_INSENSITIVE_ORDER);
+            case "kind" -> Comparator.comparing(entry -> entry.target().kind());
+            default -> Comparator.comparing(entry -> entry.target().describe(), String.CASE_INSENSITIVE_ORDER);
+        };
     }
 
     private void newEntry()
     {
         commitNoteEdit();
+        disarmRefresh();
         ListEHiding.get().add(ListEHiding.blankEntry());
-        refreshList();
+        kindDropdown.setOptions(kindOptions());
+        apply();
     }
 
-    private void refreshList()
+    private void save()
     {
-        list.setRows(ListEHiding.get().entries());
+        commitNoteEdit();
+        disarmRefresh();
+        ListEHiding.get().saveIfDirty();
+        setStatus("Saved");
     }
 
-    private void refresh()
+    private void onRefreshClicked()
     {
+        if (!refreshArmed)
+        {
+            refreshArmed = true;
+            refreshButton.setMessage(Component.literal("Confirm"));
+            return;
+        }
+        refreshArmed = false;
+        refreshButton.setMessage(Component.literal("Refresh"));
         commitNoteEdit();
         menu = null;
         ListEHiding.get().reload();
-        refreshList();
+        kindDropdown.setOptions(kindOptions());
+        apply();
+        setStatus("Reloaded");
+    }
+
+    private void disarmRefresh()
+    {
+        if (refreshArmed)
+        {
+            refreshArmed = false;
+            refreshButton.setMessage(Component.literal("Refresh"));
+        }
     }
 
     private void openMenu(ListEHidingEntry entry, double mouseX, double mouseY)
     {
         commitNoteEdit();
+        disarmRefresh();
         menuX = (int) mouseX;
         menuY = (int) mouseY;
         showMainMenu(entry);
@@ -133,20 +269,21 @@ public final class HidingListScreen extends Screen
     {
         int index = ListEHiding.get().indexOf(entry);
         ListEHiding.get().set(index, new ListEHidingEntry(entry.target(), !entry.enabled(), entry.note()));
-        refreshList();
+        apply();
     }
 
     private void delete(ListEHidingEntry entry)
     {
         int index = ListEHiding.get().indexOf(entry);
         ListEHiding.get().remove(index);
-        refreshList();
+        kindDropdown.setOptions(kindOptions());
+        apply();
     }
 
     private void startNoteEdit(ListEHidingEntry entry)
     {
-        int index = ListEHiding.get().indexOf(entry);
-        Rect2i cell = list.cellBounds(index, NOTE_COLUMN);
+        int viewIndex = list.indexOf(entry);
+        Rect2i cell = list.cellBounds(viewIndex, NOTE_COLUMN);
         if (cell == null)
         {
             return;
@@ -177,7 +314,7 @@ public final class HidingListScreen extends Screen
         {
             int index = ListEHiding.get().indexOf(entry);
             ListEHiding.get().set(index, new ListEHidingEntry(entry.target(), entry.enabled(), text));
-            refreshList();
+            apply();
         }
     }
 
@@ -188,23 +325,65 @@ public final class HidingListScreen extends Screen
         setFocused(null);
     }
 
+    private void setStatus(String message)
+    {
+        this.status = message;
+        this.statusUntil = System.currentTimeMillis() + 5000L;
+    }
+
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick)
     {
+        Dropdown openDropdown = openDropdown();
+        list.setHoverEnabled(openDropdown == null);
+
         this.renderBackground(guiGraphics);
         super.render(guiGraphics, mouseX, mouseY, partialTick);
 
+        for (Dropdown dropdown : dropdowns)
+        {
+            if (dropdown != openDropdown)
+            {
+                dropdown.render(guiGraphics, mouseX, mouseY, partialTick);
+            }
+        }
+        if (openDropdown != null)
+        {
+            openDropdown.render(guiGraphics, mouseX, mouseY, partialTick);
+        }
+
         guiGraphics.drawString(this.font, this.title, MARGIN, 8, 0xFFFFFFFF, true);
-        guiGraphics.drawString(this.font, ListEHiding.get().entries().size() + " entries", MARGIN, 19, 0xFFA0A0A0, false);
+        guiGraphics.drawString(this.font, listSize() + " entries", MARGIN, 19, 0xFFA0A0A0, false);
+        if (System.currentTimeMillis() < this.statusUntil)
+        {
+            guiGraphics.drawString(this.font, this.status, this.width - MARGIN - this.font.width(this.status), 8, 0xFFFFE080, false);
+        }
 
         if (menu != null)
         {
             menu.render(guiGraphics, mouseX, mouseY, partialTick);
         }
-        else
+        else if (openDropdown == null)
         {
             drawTooltip(guiGraphics, mouseX, mouseY);
         }
+    }
+
+    private int listSize()
+    {
+        return ListEHiding.get().entries().size();
+    }
+
+    private Dropdown openDropdown()
+    {
+        for (Dropdown dropdown : dropdowns)
+        {
+            if (dropdown.isOpen())
+            {
+                return dropdown;
+            }
+        }
+        return null;
     }
 
     private void drawTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY)
@@ -249,6 +428,22 @@ public final class HidingListScreen extends Screen
             commitNoteEdit();
         }
 
+        for (Dropdown dropdown : dropdowns)
+        {
+            if (dropdown.isOpen())
+            {
+                dropdown.mouseClicked(mouseX, mouseY, button);
+                return true;
+            }
+        }
+        for (Dropdown dropdown : dropdowns)
+        {
+            if (dropdown.mouseClicked(mouseX, mouseY, button))
+            {
+                return true;
+            }
+        }
+
         if (list.mouseClicked(mouseX, mouseY, button))
         {
             return true;
@@ -283,6 +478,17 @@ public final class HidingListScreen extends Screen
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta)
     {
+        for (Dropdown dropdown : dropdowns)
+        {
+            if (dropdown.isOpen() && dropdown.mouseScrolled(mouseX, mouseY, delta))
+            {
+                return true;
+            }
+        }
+        for (Dropdown dropdown : dropdowns)
+        {
+            dropdown.close();
+        }
         if (menu != null)
         {
             menu = null;
