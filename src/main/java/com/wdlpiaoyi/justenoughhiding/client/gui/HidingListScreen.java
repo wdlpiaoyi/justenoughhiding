@@ -78,6 +78,7 @@ public final class HidingListScreen extends Screen
     private PopupMenu menu;
     private int menuX;
     private int menuY;
+    private int batchDeleteStep;
 
     private String status = "";
     private long statusUntil;
@@ -148,6 +149,7 @@ public final class HidingListScreen extends Screen
         int listTop = controlsY + ROW_HEIGHT + 6;
         int listHeight = Math.max(20, this.height - MARGIN - listTop);
         list = new RowList<>(this.font);
+        list.setMultiSelectEnabled(true);
         list.setBounds(MARGIN, listTop, this.width - MARGIN * 2, listHeight);
         list.setColumns(List.of(
             Columns.icon(18, (ListEHidingEntry entry) -> adapter.icon(entry.target())),
@@ -362,7 +364,86 @@ public final class HidingListScreen extends Screen
         disarmRefresh();
         menuX = (int) mouseX;
         menuY = (int) mouseY;
-        showMainMenu(entry);
+        List<ListEHidingEntry> selection = list.getSelection();
+        if (selection.size() > 1 && list.isSelected(entry))
+        {
+            batchDeleteStep = 0;
+            showBatchMenu(selection);
+        }
+        else
+        {
+            showMainMenu(entry);
+        }
+    }
+
+    private void showBatchMenu(List<ListEHidingEntry> selection)
+    {
+        int count = selection.size();
+        List<PopupMenu.Item> items = new ArrayList<>();
+        items.add(new PopupMenu.Item("Enable " + count + " selected", 0xFFFFFFFF, () -> batchSetEnabled(selection, true)));
+        items.add(new PopupMenu.Item("Disable " + count + " selected", 0xFFC0C0FF, () -> batchSetEnabled(selection, false)));
+        String deleteLabel = batchDeleteStep == 0
+            ? "Delete " + count + " selected"
+            : "Confirm delete (" + batchDeleteStep + "/3)";
+        items.add(new PopupMenu.Item(deleteLabel, 0xFFFF7070, () -> onBatchDelete(selection)));
+        menu = PopupMenu.at(this.font, menuX, menuY, 220, items);
+    }
+
+    private void onBatchDelete(List<ListEHidingEntry> selection)
+    {
+        batchDeleteStep++;
+        if (batchDeleteStep >= 3)
+        {
+            batchDeleteStep = 0;
+            batchDelete(selection);
+            return;
+        }
+        showBatchMenu(selection);
+    }
+
+    private void batchSetEnabled(List<ListEHidingEntry> selection, boolean enabled)
+    {
+        for (ListEHidingEntry row : selection)
+        {
+            Intent intent = intentRows.get(row);
+            if (intent != null)
+            {
+                IntentOverrides.setEnabled(intent.target(), intent.source().id(), enabled);
+                continue;
+            }
+            int index = ListEHiding.get().indexOf(row);
+            if (index >= 0)
+            {
+                ListEHiding.get().set(index, new ListEHidingEntry(row.target(), enabled, row.note(), row.priority()));
+            }
+        }
+        list.clearSelection();
+        apply();
+        setStatus((enabled ? "Enabled " : "Disabled ") + selection.size() + " rows");
+    }
+
+    private void batchDelete(List<ListEHidingEntry> selection)
+    {
+        int deleted = 0;
+        int skipped = 0;
+        for (ListEHidingEntry row : selection)
+        {
+            if (intentRows.get(row) != null)
+            {
+                skipped++;
+                continue;
+            }
+            int index = ListEHiding.get().indexOf(row);
+            if (index >= 0)
+            {
+                ListEHiding.get().remove(index);
+                deleted++;
+            }
+        }
+        list.clearSelection();
+        kindDropdown.setOptions(kindOptions());
+        apply();
+        setStatus("Deleted " + deleted + (skipped > 0 ? ", skipped " + skipped + " intent rows" : ""));
     }
 
     private void showMainMenu(ListEHidingEntry entry)
@@ -758,7 +839,9 @@ public final class HidingListScreen extends Screen
         }
 
         guiGraphics.drawString(this.font, this.title, MARGIN, 8, 0xFFFFFFFF, true);
-        guiGraphics.drawString(this.font, listSize() + " entries", MARGIN, 19, 0xFFA0A0A0, false);
+        int selectedCount = list.getSelection().size();
+        String summary = listSize() + " entries" + (selectedCount > 0 ? ", " + selectedCount + " selected" : "");
+        guiGraphics.drawString(this.font, summary, MARGIN, 19, 0xFFA0A0A0, false);
         if (System.currentTimeMillis() < this.statusUntil)
         {
             guiGraphics.drawString(this.font, this.status, this.width - MARGIN - this.font.width(this.status), 8, 0xFFFFE080, false);

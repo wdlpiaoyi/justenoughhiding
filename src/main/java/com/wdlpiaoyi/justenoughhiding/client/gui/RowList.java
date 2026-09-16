@@ -4,9 +4,14 @@ import com.wdlpiaoyi.justenoughhiding.client.gui.column.Column;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.Rect2i;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 
 /** A scrollable, selectable list of rows rendered through {@link Column}s. */
 public final class RowList<T> implements Renderable
@@ -30,6 +35,9 @@ public final class RowList<T> implements Renderable
     private List<Column<T>> columns = List.of();
     private List<T> rows = List.of();
     private T selected;
+    private final Set<T> selection = Collections.newSetFromMap(new IdentityHashMap<>());
+    private T anchor;
+    private boolean multiSelect;
     private T pressedRow;
     private RowRightClickListener<T> rightClickListener;
     private int scroll;
@@ -59,10 +67,53 @@ public final class RowList<T> implements Renderable
     {
         this.rows = rows;
         this.scroll = clampScroll(this.scroll);
-        if (this.selected != null && !rows.contains(this.selected))
+        selection.removeIf(row -> !containsIdentity(row));
+        if (anchor != null && !containsIdentity(anchor))
         {
-            this.selected = null;
+            anchor = null;
         }
+        if (selected != null && !containsIdentity(selected))
+        {
+            selected = null;
+        }
+        if (selected == null && !selection.isEmpty())
+        {
+            selected = selection.iterator().next();
+        }
+    }
+
+    private boolean containsIdentity(T row)
+    {
+        for (T candidate : rows)
+        {
+            if (candidate == row)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void setMultiSelectEnabled(boolean multiSelect)
+    {
+        this.multiSelect = multiSelect;
+    }
+
+    public List<T> getSelection()
+    {
+        return new ArrayList<>(selection);
+    }
+
+    public boolean isSelected(T row)
+    {
+        return selection.contains(row);
+    }
+
+    public void clearSelection()
+    {
+        selection.clear();
+        selected = null;
+        anchor = null;
     }
 
     public void setRightClickListener(RowRightClickListener<T> rightClickListener)
@@ -133,7 +184,7 @@ public final class RowList<T> implements Renderable
             boolean hovered = hoverEnabled && mouseX >= x && mouseX < rowRight && mouseY >= rowY && mouseY < rowBottom;
 
             T row = rows.get(index);
-            if (row == selected)
+            if (isSelected(row))
             {
                 guiGraphics.fill(x, rowY, rowRight, rowBottom, 0xFF3050A0);
             }
@@ -218,7 +269,13 @@ public final class RowList<T> implements Renderable
             if (row != null)
             {
                 pressedRow = row;
+                if (!selection.contains(row))
+                {
+                    selection.clear();
+                    selection.add(row);
+                }
                 selected = row;
+                anchor = row;
                 return true;
             }
             return false;
@@ -237,7 +294,57 @@ public final class RowList<T> implements Renderable
         }
 
         int index = scroll + (int) ((mouseY - y) / ROW_HEIGHT);
-        selected = (index >= 0 && index < rows.size()) ? rows.get(index) : null;
+        T row = (index >= 0 && index < rows.size()) ? rows.get(index) : null;
+
+        if (!multiSelect || row == null)
+        {
+            selection.clear();
+            if (row != null)
+            {
+                selection.add(row);
+            }
+            selected = row;
+            anchor = row;
+            return true;
+        }
+
+        boolean shift = Screen.hasShiftDown();
+        boolean control = Screen.hasControlDown();
+        if (shift && anchor != null)
+        {
+            int anchorIndex = indexOf(anchor);
+            if (anchorIndex >= 0)
+            {
+                int from = Math.min(anchorIndex, index);
+                int to = Math.max(anchorIndex, index);
+                selection.clear();
+                for (int i = from; i <= to; i++)
+                {
+                    selection.add(rows.get(i));
+                }
+            }
+            else
+            {
+                selection.clear();
+                selection.add(row);
+                anchor = row;
+            }
+        }
+        else if (control)
+        {
+            if (!selection.remove(row))
+            {
+                selection.add(row);
+            }
+            anchor = row;
+        }
+        else
+        {
+            selection.clear();
+            selection.add(row);
+            anchor = row;
+        }
+        selected = row;
         return true;
     }
 
