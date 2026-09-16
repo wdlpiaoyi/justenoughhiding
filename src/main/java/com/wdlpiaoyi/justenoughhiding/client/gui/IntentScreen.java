@@ -1,5 +1,6 @@
 package com.wdlpiaoyi.justenoughhiding.client.gui;
 
+import com.wdlpiaoyi.justenoughhiding.client.IntentFeed;
 import com.wdlpiaoyi.justenoughhiding.client.gui.widget.Dropdown;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.Adapters;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.IconRenderer;
@@ -62,8 +63,10 @@ public final class IntentScreen extends Screen
     protected void init()
     {
         dropdowns.clear();
+        IntentFeed.ensureRegistered();
         all.clear();
         all.addAll(IntentRegistry.query().all());
+        IntentFeed.clear();
 
         int searchWidth = Math.min(220, Math.max(120, this.width / 3));
         search = new EditBox(this.font, MARGIN, TOP, searchWidth, ROW_HEIGHT, Component.literal("Search"));
@@ -207,6 +210,7 @@ public final class IntentScreen extends Screen
     {
         all.clear();
         all.addAll(IntentRegistry.query().all());
+        IntentFeed.clear();
         sourceDropdown.setOptions(optionList(intent -> intent.source().id()));
         kindDropdown.setOptions(optionList(intent -> intent.kind().name()));
         apply();
@@ -315,6 +319,17 @@ public final class IntentScreen extends Screen
         String summary = all.size() + " entries, " + view.size() + " shown, "
             + IntentRegistry.query().currentlyHidden().size() + " hidden";
         guiGraphics.drawString(this.font, summary, MARGIN, 19, 0xFFA0A0A0, false);
+
+        int pending = IntentFeed.pending();
+        if (refreshButton != null)
+        {
+            refreshButton.setMessage(Component.literal(pending > 0 ? "Refresh (+" + pending + ")" : "Refresh"));
+        }
+        if (pending > 0)
+        {
+            String badge = "+" + pending + " new";
+            guiGraphics.drawString(this.font, badge, this.width - MARGIN - this.font.width(badge), 19, 0xFFFFB060, false);
+        }
 
         if (System.currentTimeMillis() < this.statusUntil)
         {
