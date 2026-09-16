@@ -28,6 +28,35 @@ public final class JeiIntentRecorder
         return !JehConfig.intentRecordingEnabled();
     }
 
+    private static final ThreadLocal<Integer> SUPPRESS = ThreadLocal.withInitial(() -> 0);
+
+    /** Run an action without recording the JEI changes it makes (used by JEHide / reveal). */
+    public static void runSuppressed(Runnable action)
+    {
+        SUPPRESS.set(SUPPRESS.get() + 1);
+        try
+        {
+            action.run();
+        }
+        finally
+        {
+            int depth = SUPPRESS.get() - 1;
+            if (depth <= 0)
+            {
+                SUPPRESS.remove();
+            }
+            else
+            {
+                SUPPRESS.set(depth);
+            }
+        }
+    }
+
+    private static boolean skip()
+    {
+        return SUPPRESS.get() > 0 || disabled();
+    }
+
     public static IntentSource currentSource()
     {
         String id = PluginContext.currentId();
@@ -51,7 +80,7 @@ public final class JeiIntentRecorder
         IntentKind kind
     )
     {
-        if (disabled() || manager == null || type == null || ingredients == null || ingredients.isEmpty())
+        if (skip() || manager == null || type == null || ingredients == null || ingredients.isEmpty())
         {
             return;
         }
@@ -101,7 +130,7 @@ public final class JeiIntentRecorder
         IntentSource fixedSource
     )
     {
-        if (disabled() || manager == null || typed == null)
+        if (skip() || manager == null || typed == null)
         {
             return;
         }
@@ -124,7 +153,7 @@ public final class JeiIntentRecorder
      */
     public static void removeTyped(IIngredientManager manager, ITypedIngredient<?> typed, IntentSource fixedSource)
     {
-        if (disabled() || manager == null || typed == null)
+        if (skip() || manager == null || typed == null)
         {
             return;
         }
@@ -162,7 +191,7 @@ public final class JeiIntentRecorder
 
     public static void recordRecipe(ResourceLocation recipeTypeUid, Object recipe, IntentKind kind)
     {
-        if (disabled() || recipeTypeUid == null || recipe == null)
+        if (skip() || recipeTypeUid == null || recipe == null)
         {
             return;
         }
@@ -176,7 +205,7 @@ public final class JeiIntentRecorder
 
     public static void recordRecipeCategory(ResourceLocation recipeTypeUid, IntentKind kind)
     {
-        if (disabled() || recipeTypeUid == null)
+        if (skip() || recipeTypeUid == null)
         {
             return;
         }

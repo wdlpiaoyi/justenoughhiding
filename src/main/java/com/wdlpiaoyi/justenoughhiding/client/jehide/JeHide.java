@@ -5,6 +5,7 @@ import com.wdlpiaoyi.justenoughhiding.client.viewer.Adapters;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetSuggestion;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
+import com.wdlpiaoyi.justenoughhiding.jei.intent.JeiIntentRecorder;
 import com.wdlpiaoyi.justenoughhiding.listehiding.ListEHiding;
 import com.wdlpiaoyi.justenoughhiding.listehiding.ListEHidingEntry;
 import mezz.jei.api.ingredients.IIngredientHelper;
@@ -65,11 +66,16 @@ public final class JeHide
             return;
         }
         currentRuntime = runtime;
+        JeiIntentRecorder.runSuppressed(() -> applyInternal(runtime));
+        refreshIngredientFilter(runtime);
+    }
+
+    private static void applyInternal(IJeiRuntime runtime)
+    {
         clearPrevious(runtime);
 
         if (!JehConfig.jehideEnabled())
         {
-            refreshIngredientFilter(runtime);
             JustEnoughHiding.LOGGER.info("[JEH] jehide: disabled, cleared previous hides");
             return;
         }
@@ -87,7 +93,6 @@ public final class JeHide
         int ingredients = hideIngredients(runtime, expanded);
         int recipes = hideRecipes(runtime, expanded);
         int categories = hideCategories(runtime, expanded);
-        refreshIngredientFilter(runtime);
         JustEnoughHiding.LOGGER.info("[JEH] jehide: hid {} ingredients, {} recipes, {} categories",
             ingredients, recipes, categories);
     }

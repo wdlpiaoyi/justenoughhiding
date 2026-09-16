@@ -2,6 +2,7 @@ package com.wdlpiaoyi.justenoughhiding.jei;
 
 import com.wdlpiaoyi.justenoughhiding.JustEnoughHiding;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
+import com.wdlpiaoyi.justenoughhiding.jei.intent.JeiIntentRecorder;
 import mezz.jei.api.recipe.IRecipeManager;
 import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.category.IRecipeCategory;
@@ -66,12 +67,15 @@ public final class JeiRecipeReveal
         {
             return -1;
         }
-        manager.unhideRecipeCategory(type);
         List recipes = manager.createRecipeLookup(type).includeHidden().get().toList();
-        if (!recipes.isEmpty())
+        JeiIntentRecorder.runSuppressed(() ->
         {
-            manager.unhideRecipes(type, recipes);
-        }
+            manager.unhideRecipeCategory(type);
+            if (!recipes.isEmpty())
+            {
+                manager.unhideRecipes(type, recipes);
+            }
+        });
         return recipes.size();
     }
 }

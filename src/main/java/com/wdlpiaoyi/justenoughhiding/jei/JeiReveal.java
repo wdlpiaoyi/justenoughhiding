@@ -7,6 +7,7 @@ import com.wdlpiaoyi.justenoughhiding.intent.IntentKind;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentRegistry;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentSource;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
+import com.wdlpiaoyi.justenoughhiding.jei.intent.JeiIntentRecorder;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientType;
@@ -87,7 +88,7 @@ public final class JeiReveal
         {
             try
             {
-                addRaw(manager, entry.getKey(), entry.getValue());
+                JeiIntentRecorder.runSuppressed(() -> addRaw(manager, entry.getKey(), entry.getValue()));
                 restored += entry.getValue().size();
             }
             catch (Throwable t)
@@ -205,7 +206,7 @@ public final class JeiReveal
 
         if (!absent.isEmpty())
         {
-            manager.addIngredientsAtRuntime(VanillaTypes.ITEM_STACK, absent);
+            JeiIntentRecorder.runSuppressed(() -> manager.addIngredientsAtRuntime(VanillaTypes.ITEM_STACK, absent));
             JustEnoughHiding.LOGGER.info("[JEH] reveal: added {} item stacks that JEI was missing", absent.size());
         }
     }
