@@ -9,6 +9,11 @@ import java.util.List;
 /** The locally persisted list backing the {@code /jeh list} GUI. */
 public final class ListEHiding
 {
+    /** Note marker for entries added by KubeJS that are not written to disk yet. */
+    public static final String KUBEJS_UNSAVED = "kubejs(unsaved)";
+    /** Note marker for entries added by KubeJS that are present in the JSON file. */
+    public static final String KUBEJS_SAVED = "kubejs(saved)";
+
     private static final ListEHiding INSTANCE = new ListEHiding();
 
     private final List<ListEHidingEntry> entries = new ArrayList<>();
@@ -87,8 +92,29 @@ public final class ListEHiding
     {
         if (dirty)
         {
+            markKubeJsSaved();
             ListEHidingStore.save(entries);
             dirty = false;
+        }
+    }
+
+    /** Builds the note for a KubeJS-added entry, including its storage state. */
+    public static String kubeJsNote(String userNote, boolean saved)
+    {
+        String marker = saved ? KUBEJS_SAVED : KUBEJS_UNSAVED;
+        return userNote == null || userNote.isBlank() ? marker : marker + " " + userNote;
+    }
+
+    private void markKubeJsSaved()
+    {
+        for (int i = 0; i < entries.size(); i++)
+        {
+            ListEHidingEntry entry = entries.get(i);
+            if (entry.note().contains(KUBEJS_UNSAVED))
+            {
+                entries.set(i, new ListEHidingEntry(entry.target(), entry.enabled(),
+                    entry.note().replace(KUBEJS_UNSAVED, KUBEJS_SAVED), entry.priority()));
+            }
         }
     }
 

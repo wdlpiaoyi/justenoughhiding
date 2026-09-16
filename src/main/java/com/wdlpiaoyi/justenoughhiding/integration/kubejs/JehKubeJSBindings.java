@@ -209,7 +209,7 @@ public final class JehKubeJSBindings
                 return false;
             }
         }
-        ListEHiding.get().add(new ListEHidingEntry(target, true, note == null ? "" : note, priority));
+        ListEHiding.get().add(new ListEHidingEntry(target, true, ListEHiding.kubeJsNote(note, false), priority));
         JeHide.reapply();
         return true;
     }
