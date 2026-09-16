@@ -14,6 +14,7 @@ import mezz.jei.api.ingredients.subtypes.UidContext;
 import mezz.jei.api.recipe.IRecipeManager;
 import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.category.IRecipeCategory;
+import mezz.jei.api.runtime.IIngredientFilter;
 import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.api.runtime.IIngredientVisibility;
 import mezz.jei.api.runtime.IJeiRuntime;
@@ -66,6 +67,7 @@ public final class JeHide
 
         if (!JehConfig.jehideEnabled())
         {
+            refreshIngredientFilter(runtime);
             JustEnoughHiding.LOGGER.info("[JEH] jehide: disabled, cleared previous hides");
             return;
         }
@@ -83,8 +85,32 @@ public final class JeHide
         int ingredients = hideIngredients(runtime, expanded);
         int recipes = hideRecipes(runtime, expanded);
         int categories = hideCategories(runtime, expanded);
+        refreshIngredientFilter(runtime);
         JustEnoughHiding.LOGGER.info("[JEH] jehide: hid {} ingredients, {} recipes, {} categories",
             ingredients, recipes, categories);
+    }
+
+    /**
+     * JEI caches its ingredient list, and hide/unhide does not invalidate it, so a deleted or
+     * disabled entry would stay hidden until a manual reload. Nudging the filter text forces a
+     * rebuild (set and restore), making both hiding and restoring take effect immediately.
+     */
+    private static void refreshIngredientFilter(IJeiRuntime runtime)
+    {
+        try
+        {
+            IIngredientFilter filter = runtime.getIngredientFilter();
+            String base = filter.getFilterText();
+            if (base == null)
+            {
+                base = "";
+            }
+            filter.setFilterText(base + " ");
+            filter.setFilterText(base);
+        }
+        catch (Throwable ignored)
+        {
+        }
     }
 
     public static void reapply()
