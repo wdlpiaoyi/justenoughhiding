@@ -17,11 +17,19 @@ public final class JehConfig
         "sequence"
     );
 
+    public enum BookmarkTarget
+    {
+        ICON,
+        ROW
+    }
+
     private static final ForgeConfigSpec.BooleanValue INTENT_RECORDING_ENABLED;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> SORT_MODES;
+    private static final ForgeConfigSpec.EnumValue<BookmarkTarget> BOOKMARK_TARGET;
 
     private static volatile boolean intentRecordingEnabled = true;
     private static volatile List<String> sortModes = DEFAULT_SORT_MODES;
+    private static volatile BookmarkTarget bookmarkTarget = BookmarkTarget.ICON;
 
     static
     {
@@ -47,6 +55,13 @@ public final class JehConfig
                 "Default direction is ascending, except 'count' which defaults to descending when written as 'count:desc'."
             )
             .defineListAllowEmpty("sortModes", DEFAULT_SORT_MODES, JehConfig::isString);
+        BOOKMARK_TARGET = builder
+            .comment(
+                "Where the JEI bookmark key applies in the intent viewer:",
+                "ICON - only while hovering the item icon;",
+                "ROW  - anywhere on the row."
+            )
+            .defineEnum("bookmarkTarget", BookmarkTarget.ICON);
         builder.pop();
 
         SPEC = builder.build();
@@ -66,6 +81,11 @@ public final class JehConfig
         return sortModes;
     }
 
+    public static BookmarkTarget bookmarkTarget()
+    {
+        return bookmarkTarget;
+    }
+
     public static void refresh()
     {
         if (!SPEC.isLoaded())
@@ -83,6 +103,8 @@ public final class JehConfig
             }
         }
         sortModes = cleaned.isEmpty() ? DEFAULT_SORT_MODES : List.copyOf(cleaned);
+
+        bookmarkTarget = BOOKMARK_TARGET.get();
     }
 
     private static boolean isString(Object value)

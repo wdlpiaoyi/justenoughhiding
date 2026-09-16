@@ -434,7 +434,9 @@ public final class IntentScreen extends Screen
             return false;
         }
 
-        Intent hovered = list.intentAtIcon(lastMouseX, lastMouseY);
+        Intent hovered = JehConfig.bookmarkTarget() == JehConfig.BookmarkTarget.ROW
+            ? list.intentAt(lastMouseX, lastMouseY)
+            : list.intentAtIcon(lastMouseX, lastMouseY);
         if (hovered == null)
         {
             return false;
