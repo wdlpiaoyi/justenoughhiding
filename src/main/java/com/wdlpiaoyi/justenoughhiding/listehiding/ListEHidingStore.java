@@ -112,6 +112,7 @@ public final class ListEHidingStore
                 ResourceLocation type = dto.recipeType == null ? null : ResourceLocation.tryParse(dto.recipeType);
                 yield type != null ? IntentTarget.category(type) : null;
             }
+            case "tag" -> dto.tag == null || dto.tag.isBlank() ? null : IntentTarget.tag(dto.tag);
             case "unset" -> IntentTarget.unset();
             default -> null;
         };
@@ -140,6 +141,10 @@ public final class ListEHidingStore
         {
             dto.recipeType = category.recipeType().toString();
         }
+        else if (entry.target() instanceof IntentTarget.Tag tag)
+        {
+            dto.tag = tag.tagId();
+        }
         dto.enabled = entry.enabled();
         dto.note = entry.note();
         return dto;
@@ -157,6 +162,7 @@ public final class ListEHidingStore
         private String uid;
         private String recipeType;
         private String recipeId;
+        private String tag;
         private Boolean enabled;
         private String note;
     }

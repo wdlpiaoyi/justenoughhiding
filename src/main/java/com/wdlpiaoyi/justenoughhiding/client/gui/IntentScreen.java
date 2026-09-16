@@ -172,7 +172,8 @@ public final class IntentScreen extends Screen
             }
             if (!query.isEmpty())
             {
-                String haystack = (intent.kind().name() + " " + intent.source().id() + " " + intent.target().describe())
+                String haystack = (intent.kind().name() + " " + intent.source().id() + " "
+                    + intent.target().describe() + " " + intent.target().typeUid())
                     .toLowerCase(Locale.ROOT);
                 if (!haystack.contains(query))
                 {

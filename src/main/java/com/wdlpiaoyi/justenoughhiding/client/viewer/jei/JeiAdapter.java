@@ -5,6 +5,7 @@ import com.wdlpiaoyi.justenoughhiding.JustEnoughHiding;
 import com.wdlpiaoyi.justenoughhiding.client.gui.column.Column;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.DefaultColumns;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.IconRenderer;
+import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetKind;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetSuggestion;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.ViewerAdapter;
 import com.wdlpiaoyi.justenoughhiding.intent.IngredientKey;
@@ -14,7 +15,10 @@ import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import com.wdlpiaoyi.justenoughhiding.jei.JeiReveal;
 import com.wdlpiaoyi.justenoughhiding.jei.intent.JeiIntentScanner;
 import mezz.jei.api.constants.VanillaTypes;
+import mezz.jei.api.ingredients.IIngredientRenderer;
+import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
+import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.api.runtime.IJeiKeyMapping;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.client.Minecraft;
@@ -25,6 +29,7 @@ import net.minecraft.world.level.Level;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.registries.ForgeRegistries;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -36,6 +41,7 @@ public final class JeiAdapter implements ViewerAdapter
 
     private final JeiReveal reveal = new JeiReveal();
     private final Map<String, ItemStack> iconCache = new ConcurrentHashMap<>();
+    private final Map<String, IconRenderer> typedIconCache = new ConcurrentHashMap<>();
     private volatile IJeiRuntime runtime;
     private volatile JeiTargetIndex targetIndex;
     private volatile IJeiRuntime indexRuntime;
@@ -55,6 +61,35 @@ public final class JeiAdapter implements ViewerAdapter
     }
 
     @Override
+    public List<TargetKind> targetKinds()
+    {
+        List<TargetKind> kinds = new ArrayList<>();
+        kinds.add(new TargetKind("", "Auto"));
+        IJeiRuntime current = this.runtime;
+        if (current != null)
+        {
+            try
+            {
+                for (IIngredientType<?> type : current.getIngredientManager().getRegisteredIngredientTypes())
+                {
+                    String uid = type.getUid();
+                    if (uid != null)
+                    {
+                        kinds.add(new TargetKind("ingredient|" + uid, JeiTargetIndex.typeLabel(uid)));
+                    }
+                }
+            }
+            catch (Throwable ignored)
+            {
+            }
+        }
+        kinds.add(new TargetKind("recipe", "Recipe"));
+        kinds.add(new TargetKind("recipe_category", "Category"));
+        kinds.add(new TargetKind("tag", "Tag"));
+        return kinds;
+    }
+
+    @Override
     public List<Column<Intent>> columns()
     {
         return DefaultColumns.withIcon(intent -> icon(intent.target()));
@@ -63,8 +98,68 @@ public final class JeiAdapter implements ViewerAdapter
     @Override
     public IconRenderer icon(IntentTarget target)
     {
-        ItemStack stack = resolveItem(target);
-        return stack.isEmpty() ? IconRenderer.EMPTY : new ItemIconRenderer(stack);
+        if (!(target instanceof IntentTarget.Ingredient ingredient))
+        {
+            return IconRenderer.EMPTY;
+        }
+        if (VanillaTypes.ITEM_STACK.getUid().equals(ingredient.key().typeUid()))
+        {
+            ItemStack stack = resolveItem(ingredient);
+            return stack.isEmpty() ? IconRenderer.EMPTY : new ItemIconRenderer(stack);
+        }
+        return typedIcon(ingredient);
+    }
+
+    private IconRenderer typedIcon(IntentTarget.Ingredient ingredient)
+    {
+        String typeUid = ingredient.key().typeUid();
+        String uid = ingredient.key().uid();
+        String cacheKey = typeUid + "|" + uid;
+        IconRenderer cached = typedIconCache.get(cacheKey);
+        if (cached != null)
+        {
+            return cached;
+        }
+
+        IJeiRuntime current = this.runtime;
+        if (current == null)
+        {
+            return IconRenderer.EMPTY;
+        }
+        try
+        {
+            IIngredientManager manager = current.getIngredientManager();
+            Optional<IIngredientType<?>> typeOptional = manager.getIngredientTypeForUid(typeUid);
+            if (typeOptional.isEmpty())
+            {
+                return IconRenderer.EMPTY;
+            }
+            IIngredientType<?> type = typeOptional.get();
+            Optional<? extends ITypedIngredient<?>> typed = typedIngredient(manager, type, uid);
+            if (typed.isEmpty())
+            {
+                return IconRenderer.EMPTY;
+            }
+            IIngredientRenderer<?> renderer = manager.getIngredientRenderer(type);
+            if (renderer == null)
+            {
+                return IconRenderer.EMPTY;
+            }
+            IconRenderer result = new TypedIconRenderer(typed.get().getIngredient(), renderer);
+            typedIconCache.put(cacheKey, result);
+            return result;
+        }
+        catch (Throwable t)
+        {
+            return IconRenderer.EMPTY;
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Optional<? extends ITypedIngredient<?>> typedIngredient(
+        IIngredientManager manager, IIngredientType<?> type, String uid)
+    {
+        return (Optional) manager.getTypedIngredientByUid((IIngredientType) type, uid);
     }
 
     @Override
@@ -154,15 +249,33 @@ public final class JeiAdapter implements ViewerAdapter
         }
         return switch (kind)
         {
-            case "ingredient" -> ingredientTarget(value);
             case "recipe" -> index().recipeTarget(value);
             case "recipe_category" ->
             {
                 ResourceLocation type = ResourceLocation.tryParse(value);
                 yield type == null ? null : IntentTarget.category(type);
             }
-            default -> index().detect(value);
+            case "tag" ->
+            {
+                String tagId = value.startsWith("#") ? value.substring(1) : value;
+                yield ResourceLocation.tryParse(tagId) == null ? null : IntentTarget.tag(tagId);
+            }
+            default -> kind.startsWith("ingredient|")
+                ? ingredientOfType(kind.substring("ingredient|".length()), value)
+                : index().detect(value);
         };
+    }
+
+    private IntentTarget ingredientOfType(String typeUid, String uid)
+    {
+        if (VanillaTypes.ITEM_STACK.getUid().equals(typeUid))
+        {
+            return ingredientTarget(uid);
+        }
+        int brace = uid.indexOf('{');
+        return ResourceLocation.tryParse(brace >= 0 ? uid.substring(0, brace) : uid) == null
+            ? null
+            : IntentTarget.of(IngredientKey.of(typeUid, uid));
     }
 
     private JeiTargetIndex index()

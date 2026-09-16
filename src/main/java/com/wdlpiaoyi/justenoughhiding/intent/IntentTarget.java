@@ -23,6 +23,12 @@ public sealed interface IntentTarget
         return describe();
     }
 
+    /** Ingredient type uid when this is an {@link Ingredient}; empty for every other kind. */
+    default String typeUid()
+    {
+        return "";
+    }
+
     record Ingredient(IngredientKey key) implements IntentTarget
     {
         @Override
@@ -41,6 +47,12 @@ public sealed interface IntentTarget
         public String copyText()
         {
             return key.uid();
+        }
+
+        @Override
+        public String typeUid()
+        {
+            return key.typeUid();
         }
     }
 
@@ -74,6 +86,28 @@ public sealed interface IntentTarget
         }
     }
 
+    /** A registry tag, e.g. {@code minecraft:logs}. Identified by its id only. */
+    record Tag(String tagId) implements IntentTarget
+    {
+        @Override
+        public String kind()
+        {
+            return "tag";
+        }
+
+        @Override
+        public String describe()
+        {
+            return "#" + tagId;
+        }
+
+        @Override
+        public String copyText()
+        {
+            return tagId;
+        }
+    }
+
     /** Placeholder used by freshly created list entries until a real target is set. */
     record Unset() implements IntentTarget
     {
@@ -103,6 +137,11 @@ public sealed interface IntentTarget
     static IntentTarget category(ResourceLocation recipeType)
     {
         return new RecipeCategory(recipeType);
+    }
+
+    static IntentTarget tag(String tagId)
+    {
+        return new Tag(tagId);
     }
 
     static IntentTarget unset()

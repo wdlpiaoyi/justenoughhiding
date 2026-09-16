@@ -19,6 +19,16 @@ public interface ViewerAdapter
 
     // ---- presentation (used by the intent viewer GUI) ----
 
+    /**
+     * Selectable target kinds for the editor's kind tabs, best-effort ordered. The first
+     * {@code "auto"} entry must always be present. Implementations may enumerate whatever the
+     * viewer knows about (ingredient types, recipes, categories, tags, ...).
+     */
+    default List<TargetKind> targetKinds()
+    {
+        return List.of(new TargetKind("", "Auto"));
+    }
+
     List<Column<Intent>> columns();
 
     IconRenderer icon(IntentTarget target);

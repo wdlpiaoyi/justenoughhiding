@@ -1,5 +1,6 @@
 package com.wdlpiaoyi.justenoughhiding.client.gui.widget;
 
+import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetKind;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetSuggestion;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -8,16 +9,14 @@ import net.minecraft.client.gui.components.Renderable;
 import java.util.List;
 
 /**
- * Target editor helper: a kind tab row ({@code Auto/Item/Recipe/Category}) on top of a
- * text-only suggestion list. Always active while a target is being edited, even when the
- * suggestion list is empty, so the kind tabs stay reachable.
+ * Target editor helper: a kind tab row on top of a text-only suggestion list. Always active
+ * while a target is being edited, even when the suggestion list is empty, so the kind tabs
+ * stay reachable.
  */
 public final class AutocompletePopup implements Renderable
 {
     private static final int ROW_HEIGHT = 12;
     private static final int TAB_HEIGHT = 12;
-    private static final String[] TAB_LABELS = {"Auto", "Item", "Recipe", "Category"};
-    private static final String[] TAB_KEYS = {"", "ingredient", "recipe", "recipe_category"};
 
     private final Font font;
     private final int maxRows;
@@ -26,6 +25,7 @@ public final class AutocompletePopup implements Renderable
     private int y;
     private int width;
     private boolean active;
+    private List<TargetKind> kinds = List.of(new TargetKind("", "Auto"));
     private int kindIndex;
     private List<TargetSuggestion> suggestions = List.of();
     private int highlighted = -1;
@@ -89,14 +89,25 @@ public final class AutocompletePopup implements Renderable
         return kindIndex;
     }
 
+    public void setKinds(List<TargetKind> kinds)
+    {
+        this.kinds = kinds == null || kinds.isEmpty() ? List.of(new TargetKind("", "Auto")) : List.copyOf(kinds);
+        this.kindIndex = Math.max(0, Math.min(this.kinds.size() - 1, kindIndex));
+    }
+
+    public List<TargetKind> getKinds()
+    {
+        return kinds;
+    }
+
     public void setKindIndex(int kindIndex)
     {
-        this.kindIndex = Math.max(0, Math.min(TAB_LABELS.length - 1, kindIndex));
+        this.kindIndex = Math.max(0, Math.min(kinds.size() - 1, kindIndex));
     }
 
     public String getKindKey()
     {
-        return TAB_KEYS[kindIndex];
+        return kinds.isEmpty() ? "" : kinds.get(kindIndex).key();
     }
 
     public TargetSuggestion getHighlighted()
@@ -141,9 +152,9 @@ public final class AutocompletePopup implements Renderable
         {
             return -1;
         }
-        int tabWidth = Math.max(1, width / TAB_LABELS.length);
+        int tabWidth = Math.max(1, width / Math.max(1, kinds.size()));
         int index = (int) ((mouseX - x) / tabWidth);
-        return Math.max(0, Math.min(TAB_LABELS.length - 1, index));
+        return Math.max(0, Math.min(kinds.size() - 1, index));
     }
 
     private int visibleRows()
@@ -190,11 +201,11 @@ public final class AutocompletePopup implements Renderable
 
     private void renderTabs(GuiGraphics guiGraphics, int mouseX, int mouseY)
     {
-        int tabWidth = Math.max(1, width / TAB_LABELS.length);
-        for (int i = 0; i < TAB_LABELS.length; i++)
+        int tabWidth = Math.max(1, width / Math.max(1, kinds.size()));
+        for (int i = 0; i < kinds.size(); i++)
         {
             int tabX = x + i * tabWidth;
-            int tabRight = i == TAB_LABELS.length - 1 ? x + width : tabX + tabWidth;
+            int tabRight = i == kinds.size() - 1 ? x + width : tabX + tabWidth;
             boolean hovered = active && mouseX >= tabX && mouseX < tabRight
                 && mouseY >= y && mouseY < y + TAB_HEIGHT;
             if (i == kindIndex)
@@ -205,7 +216,7 @@ public final class AutocompletePopup implements Renderable
             {
                 guiGraphics.fill(tabX, y, tabRight, y + TAB_HEIGHT, 0x40FFFFFF);
             }
-            guiGraphics.drawString(font, fitTo(TAB_LABELS[i], tabWidth - 6), tabX + 3, y + 2, 0xFFFFFFFF, false);
+            guiGraphics.drawString(font, fitTo(kinds.get(i).label(), tabWidth - 6), tabX + 3, y + 2, 0xFFFFFFFF, false);
         }
         guiGraphics.fill(x, y + TAB_HEIGHT - 1, x + width, y + TAB_HEIGHT, 0xFF606060);
     }

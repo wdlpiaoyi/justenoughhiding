@@ -6,6 +6,7 @@ import com.wdlpiaoyi.justenoughhiding.client.gui.widget.Dropdown;
 import com.wdlpiaoyi.justenoughhiding.client.gui.widget.PopupMenu;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.Adapters;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.IconRenderer;
+import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetKind;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetSuggestion;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.ViewerAdapter;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
@@ -23,8 +24,10 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.TreeSet;
 
 public final class HidingListScreen extends Screen
@@ -156,16 +159,27 @@ public final class HidingListScreen extends Screen
         apply();
     }
 
+    private Map<String, String> kindLabels()
+    {
+        Map<String, String> labels = new HashMap<>();
+        for (TargetKind kind : Adapters.active().targetKinds())
+        {
+            labels.put(kind.key(), kind.label());
+        }
+        return labels;
+    }
+
     private List<String> kindOptions()
     {
-        TreeSet<String> kinds = new TreeSet<>();
+        Map<String, String> labels = kindLabels();
+        TreeSet<String> values = new TreeSet<>();
         for (ListEHidingEntry entry : ListEHiding.get().entries())
         {
-            kinds.add(entry.target().kind());
+            values.add(labels.getOrDefault(kindKeyOf(entry.target()), "Auto"));
         }
         List<String> options = new ArrayList<>();
         options.add("All");
-        options.addAll(kinds);
+        options.addAll(values);
         return options;
     }
 
@@ -179,11 +193,12 @@ public final class HidingListScreen extends Screen
         String query = search.getValue().trim().toLowerCase(Locale.ROOT);
         String kind = kindDropdown.getValue();
         String state = stateDropdown.getValue();
+        Map<String, String> kindLabels = kindLabels();
 
         List<ListEHidingEntry> view = new ArrayList<>();
         for (ListEHidingEntry entry : ListEHiding.get().entries())
         {
-            if (!"All".equals(kind) && !entry.target().kind().equals(kind))
+            if (!"All".equals(kind) && !kind.equals(kindLabels.getOrDefault(kindKeyOf(entry.target()), "Auto")))
             {
                 continue;
             }
@@ -327,7 +342,8 @@ public final class HidingListScreen extends Screen
     {
         IntentTarget target = entry.target();
         String id = targetId(target);
-        int kindIndex = kindIndexOf(target);
+        autocomplete.setKinds(Adapters.active().targetKinds());
+        int kindIndex = kindIndexFor(kindKeyOf(target));
         startEdit(entry, TARGET_COLUMN, id);
         autocomplete.setKindIndex(kindIndex);
         originalTarget = target;
@@ -335,6 +351,19 @@ public final class HidingListScreen extends Screen
         originalKindIndex = kindIndex;
         refreshSuggestions(id);
         setStatus(TARGET_HINT);
+    }
+
+    private int kindIndexFor(String kindKey)
+    {
+        List<TargetKind> kinds = autocomplete.getKinds();
+        for (int i = 0; i < kinds.size(); i++)
+        {
+            if (kinds.get(i).key().equals(kindKey))
+            {
+                return i;
+            }
+        }
+        return 0;
     }
 
     private void onEditorChanged(String text)
@@ -517,7 +546,7 @@ public final class HidingListScreen extends Screen
             {
                 return;
             }
-            IntentTarget parsed = parseTarget(id, kindIndex);
+            IntentTarget parsed = parseTarget(id, autocomplete.getKindKey());
             if (parsed == null)
             {
                 setStatus("Unknown target: " + id);
@@ -560,6 +589,10 @@ public final class HidingListScreen extends Screen
         {
             return category.recipeType().toString();
         }
+        if (target instanceof IntentTarget.Tag tag)
+        {
+            return tag.tagId();
+        }
         if (target instanceof IntentTarget.Ingredient ingredient)
         {
             return ingredient.key().uid();
@@ -567,35 +600,28 @@ public final class HidingListScreen extends Screen
         return "";
     }
 
-    private static int kindIndexOf(IntentTarget target)
+    private static String kindKeyOf(IntentTarget target)
     {
+        if (target instanceof IntentTarget.Ingredient ingredient)
+        {
+            return "ingredient|" + ingredient.key().typeUid();
+        }
         return switch (target.kind())
         {
-            case "ingredient" -> 1;
-            case "recipe" -> 2;
-            case "recipe_category" -> 3;
-            default -> 0;
+            case "recipe" -> "recipe";
+            case "recipe_category" -> "recipe_category";
+            case "tag" -> "tag";
+            default -> "";
         };
     }
 
-    private static IntentTarget parseTarget(String id, int kindIndex)
+    private static IntentTarget parseTarget(String id, String kindKey)
     {
         if (id.isEmpty())
         {
             return IntentTarget.unset();
         }
-        return Adapters.active().ofKind(kindKey(kindIndex), id);
-    }
-
-    private static String kindKey(int kindIndex)
-    {
-        return switch (kindIndex)
-        {
-            case 1 -> "ingredient";
-            case 2 -> "recipe";
-            case 3 -> "recipe_category";
-            default -> "";
-        };
+        return Adapters.active().ofKind(kindKey, id);
     }
 
     private void setStatus(String message)

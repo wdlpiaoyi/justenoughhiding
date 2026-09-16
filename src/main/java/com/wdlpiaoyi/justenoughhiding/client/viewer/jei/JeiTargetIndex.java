@@ -5,6 +5,7 @@ import com.wdlpiaoyi.justenoughhiding.intent.IngredientKey;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.IIngredientHelper;
+import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.subtypes.UidContext;
 import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.category.IRecipeCategory;
@@ -13,43 +14,98 @@ import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TreeSet;
 
 /**
- * A cached, searchable snapshot of everything a target can point at: item ingredients, recipes
- * and recipe categories. Built once (per runtime / level) and queried by the autocomplete.
+ * A cached, searchable snapshot of everything a target can point at: every registered JEI
+ * ingredient type, recipes, recipe categories and (lazily) tags. Built once per runtime/level
+ * and queried by the autocomplete and the auto-detector.
  */
 final class JeiTargetIndex
 {
-    private record Entry(IntentTarget target, String id, String label, String search)
+    private record Entry(IntentTarget target, String kindKey, String id, String label, String search)
     {
     }
 
+    private final IJeiRuntime runtime;
     private final List<Entry> entries = new ArrayList<>();
-    private final Map<String, IntentTarget> ingredients = new HashMap<>();
+    private final Map<String, Map<String, IntentTarget>> ingredients = new HashMap<>();
     private final Map<String, IntentTarget> recipes = new HashMap<>();
     private final Map<String, IntentTarget> categories = new HashMap<>();
+    private final TreeSet<String> tagIds = new TreeSet<>();
+    private boolean tagsBuilt;
+
+    private JeiTargetIndex(IJeiRuntime runtime)
+    {
+        this.runtime = runtime;
+    }
 
     static JeiTargetIndex build(IJeiRuntime runtime, Level level)
     {
-        JeiTargetIndex index = new JeiTargetIndex();
+        JeiTargetIndex index = new JeiTargetIndex(runtime);
         if (runtime != null)
         {
-            index.addIngredients(runtime);
-            index.addCategories(runtime);
+            index.addIngredientTypes();
+            index.addCategories();
             index.addRecipes(level);
         }
         return index;
+    }
+
+    static String typeLabel(String typeUid)
+    {
+        if (typeUid == null || typeUid.isBlank())
+        {
+            return "Ingredient";
+        }
+        String lower = typeUid.toLowerCase(Locale.ROOT);
+        if (lower.contains("item"))
+        {
+            return "Item";
+        }
+        if (lower.contains("fluid"))
+        {
+            return "Fluid";
+        }
+        if (lower.contains("chemical"))
+        {
+            return "Chemical";
+        }
+        if (lower.contains("energy"))
+        {
+            return "Energy";
+        }
+        String path = lower;
+        int colon = path.indexOf(':');
+        if (colon >= 0)
+        {
+            path = path.substring(colon + 1);
+        }
+        StringBuilder result = new StringBuilder();
+        for (String word : path.replace('_', ' ').trim().split(" "))
+        {
+            if (word.isEmpty())
+            {
+                continue;
+            }
+            if (result.length() > 0)
+            {
+                result.append(' ');
+            }
+            result.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return result.length() == 0 ? typeUid : result.toString();
     }
 
     List<TargetSuggestion> suggest(String query, String kind, int limit)
@@ -58,13 +114,17 @@ final class JeiTargetIndex
         {
             return List.of();
         }
+        if ("tag".equals(kind))
+        {
+            ensureTags();
+        }
         String q = query.trim().toLowerCase(Locale.ROOT);
         boolean filterKind = kind != null && !kind.isBlank();
 
         List<Entry> matches = new ArrayList<>();
         for (Entry entry : entries)
         {
-            if (filterKind && !entry.target().kind().equals(kind))
+            if (filterKind && !entry.kindKey().equals(kind))
             {
                 continue;
             }
@@ -85,17 +145,6 @@ final class JeiTargetIndex
         return result;
     }
 
-    IntentTarget recipeTarget(String id)
-    {
-        if (id == null)
-        {
-            return null;
-        }
-        String key = id.trim();
-        IntentTarget target = recipes.get(key);
-        return target != null ? target : recipes.get(key.toLowerCase(Locale.ROOT));
-    }
-
     IntentTarget detect(String text)
     {
         if (text == null)
@@ -108,12 +157,21 @@ final class JeiTargetIndex
             return null;
         }
 
-        IntentTarget target = lookup(ingredients, trimmed);
-        if (target != null)
+        if (trimmed.startsWith("#"))
         {
-            return target;
+            String tagId = trimmed.substring(1).trim();
+            return ResourceLocation.tryParse(tagId) == null ? null : IntentTarget.tag(tagId);
         }
-        target = lookup(recipes, trimmed);
+
+        for (Map<String, IntentTarget> byUid : ingredients.values())
+        {
+            IntentTarget target = lookup(byUid, trimmed);
+            if (target != null)
+            {
+                return target;
+            }
+        }
+        IntentTarget target = lookup(recipes, trimmed);
         if (target != null)
         {
             return target;
@@ -131,6 +189,17 @@ final class JeiTargetIndex
             return null;
         }
         return IntentTarget.of(IngredientKey.of(VanillaTypes.ITEM_STACK.getUid(), trimmed));
+    }
+
+    IntentTarget recipeTarget(String id)
+    {
+        if (id == null)
+        {
+            return null;
+        }
+        String key = id.trim();
+        IntentTarget target = recipes.get(key);
+        return target != null ? target : recipes.get(key.toLowerCase(Locale.ROOT));
     }
 
     private static IntentTarget lookup(Map<String, IntentTarget> map, String key)
@@ -161,47 +230,90 @@ final class JeiTargetIndex
         return 3;
     }
 
-    private void addIngredients(IJeiRuntime runtime)
+    // ---- building ----
+
+    private void addIngredientTypes()
     {
-        String typeUid = VanillaTypes.ITEM_STACK.getUid();
-        IIngredientHelper<ItemStack> helper;
+        IIngredientManager manager;
         try
         {
-            helper = runtime.getIngredientManager().getIngredientHelper(VanillaTypes.ITEM_STACK);
+            manager = runtime.getIngredientManager();
         }
         catch (Throwable t)
         {
             return;
         }
-        if (helper == null)
+        if (manager == null)
+        {
+            return;
+        }
+        for (IIngredientType<?> type : safeTypes(manager))
+        {
+            addIngredientType(manager, type);
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void addIngredientType(IIngredientManager manager, IIngredientType<?> type)
+    {
+        String typeUid;
+        try
+        {
+            typeUid = type.getUid();
+        }
+        catch (Throwable t)
+        {
+            return;
+        }
+        if (typeUid == null)
         {
             return;
         }
 
-        for (ItemStack stack : safeItemStacks(runtime.getIngredientManager()))
+        IIngredientHelper helper;
+        Collection<?> all;
+        try
         {
-            if (stack == null || stack.isEmpty())
+            helper = manager.getIngredientHelper((IIngredientType) type);
+            all = manager.getAllIngredients((IIngredientType) type);
+        }
+        catch (Throwable t)
+        {
+            return;
+        }
+        if (helper == null || all == null)
+        {
+            return;
+        }
+
+        String kindKey = "ingredient|" + typeUid;
+        String typeLabel = typeLabel(typeUid);
+        boolean isItemStack = VanillaTypes.ITEM_STACK.getUid().equals(typeUid);
+        Map<String, IntentTarget> byUid = ingredients.computeIfAbsent(typeUid, ignored -> new HashMap<>());
+
+        for (Object ingredient : all)
+        {
+            if (ingredient == null)
             {
                 continue;
             }
             String uid;
             try
             {
-                uid = helper.getUniqueId(stack, UidContext.Ingredient);
+                uid = helper.getUniqueId(ingredient, UidContext.Ingredient);
             }
             catch (Throwable t)
             {
                 continue;
             }
-            if (uid == null || ingredients.containsKey(uid))
+            if (uid == null || byUid.containsKey(uid))
             {
                 continue;
             }
-
             String name;
             try
             {
-                name = helper.getDisplayName(stack);
+                name = helper.getDisplayName(ingredient);
             }
             catch (Throwable t)
             {
@@ -209,17 +321,18 @@ final class JeiTargetIndex
             }
 
             IntentTarget target = IntentTarget.of(IngredientKey.of(typeUid, uid));
-            ingredients.put(uid, target);
-            entries.add(new Entry(target, uid, name + " (" + uid + ")", search(uid, name)));
+            byUid.put(uid, target);
+            String label = isItemStack ? name + " (" + uid + ")" : "[" + typeLabel + "] " + name + " (" + uid + ")";
+            entries.add(new Entry(target, kindKey, uid, label, search(uid, name)));
         }
     }
 
-    private static Iterable<ItemStack> safeItemStacks(IIngredientManager manager)
+    private static Collection<IIngredientType<?>> safeTypes(IIngredientManager manager)
     {
         try
         {
-            var stacks = manager.getAllItemStacks();
-            return stacks == null ? List.of() : stacks;
+            Collection<IIngredientType<?>> types = manager.getRegisteredIngredientTypes();
+            return types == null ? List.of() : types;
         }
         catch (Throwable t)
         {
@@ -227,7 +340,7 @@ final class JeiTargetIndex
         }
     }
 
-    private void addCategories(IJeiRuntime runtime)
+    private void addCategories()
     {
         List<IRecipeCategory<?>> list;
         try
@@ -273,7 +386,8 @@ final class JeiTargetIndex
 
             IntentTarget target = IntentTarget.category(uid);
             categories.put(key, target);
-            entries.add(new Entry(target, key, "category: " + title + " (" + key + ")", search(key, title)));
+            entries.add(new Entry(target, "recipe_category", key,
+                "category: " + title + " (" + key + ")", search(key, title)));
         }
     }
 
@@ -320,13 +434,90 @@ final class JeiTargetIndex
                     }
                     IntentTarget target = IntentTarget.of(typeUid, key);
                     recipes.put(key, target);
-                    entries.add(new Entry(target, key,
+                    entries.add(new Entry(target, "recipe", key,
                         "recipe: " + typeUid + " # " + key, search(key, typeUid.toString())));
                 }
                 catch (Throwable ignored)
                 {
                 }
             });
+        }
+        catch (Throwable ignored)
+        {
+        }
+    }
+
+    private void ensureTags()
+    {
+        if (tagsBuilt)
+        {
+            return;
+        }
+        tagsBuilt = true;
+        if (runtime == null)
+        {
+            return;
+        }
+        IIngredientManager manager;
+        try
+        {
+            manager = runtime.getIngredientManager();
+        }
+        catch (Throwable t)
+        {
+            return;
+        }
+        if (manager == null)
+        {
+            return;
+        }
+
+        for (IIngredientType<?> type : safeTypes(manager))
+        {
+            collectTags(manager, type);
+        }
+        for (String tagId : tagIds)
+        {
+            if (ResourceLocation.tryParse(tagId) == null)
+            {
+                continue;
+            }
+            IntentTarget target = IntentTarget.tag(tagId);
+            entries.add(new Entry(target, "tag", tagId, "tag: " + tagId, search(tagId, tagId)));
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void collectTags(IIngredientManager manager, IIngredientType<?> type)
+    {
+        try
+        {
+            IIngredientHelper helper = manager.getIngredientHelper((IIngredientType) type);
+            Collection<?> all = manager.getAllIngredients((IIngredientType) type);
+            if (helper == null || all == null)
+            {
+                return;
+            }
+            for (Object ingredient : all)
+            {
+                if (ingredient == null)
+                {
+                    continue;
+                }
+                try
+                {
+                    helper.getTagStream(ingredient).forEach(tag ->
+                    {
+                        if (tag != null)
+                        {
+                            tagIds.add(tag.toString());
+                        }
+                    });
+                }
+                catch (Throwable ignored)
+                {
+                }
+            }
         }
         catch (Throwable ignored)
         {
