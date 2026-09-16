@@ -4,6 +4,8 @@ import com.wdlpiaoyi.justenoughhiding.JustEnoughHiding;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.Adapters;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetSuggestion;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
+import com.wdlpiaoyi.justenoughhiding.intent.Intent;
+import com.wdlpiaoyi.justenoughhiding.intent.IntentRegistry;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import com.wdlpiaoyi.justenoughhiding.jei.intent.JeiIntentRecorder;
 import com.wdlpiaoyi.justenoughhiding.listehiding.ListEHiding;
@@ -42,6 +44,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class JeHide
 {
     private static final int EXPAND_CAP = 100_000;
+    private static final long DEBOUNCE_MS = 800L;
     private static final List<UidContext> CONTEXTS = List.of(UidContext.Ingredient, UidContext.Recipe);
 
     private static final Set<String> HIDDEN_INGREDIENTS = ConcurrentHashMap.newKeySet();
@@ -54,6 +57,9 @@ public final class JeHide
 
     private static IJeiRuntime currentRuntime;
     private static IJeiRuntime previousRuntime;
+    private static volatile boolean dirty;
+    private static volatile long lastChangeMs;
+    private static boolean listenerRegistered;
 
     private JeHide()
     {
@@ -66,6 +72,7 @@ public final class JeHide
             return;
         }
         currentRuntime = runtime;
+        ensureListener();
         JeiIntentRecorder.runSuppressed(() -> applyInternal(runtime));
         refreshIngredientFilter(runtime);
     }
@@ -88,13 +95,61 @@ public final class JeHide
                 targets.add(entry.target());
             }
         }
+        int listCount = targets.size();
+        int intentCount = 0;
+        if (JehConfig.jehideApplyIntents())
+        {
+            for (Intent intent : IntentRegistry.query().all())
+            {
+                if (intent.kind().isHide())
+                {
+                    targets.add(intent.target());
+                    intentCount++;
+                }
+            }
+        }
         List<IntentTarget> expanded = expand(targets);
 
         int ingredients = hideIngredients(runtime, expanded);
         int recipes = hideRecipes(runtime, expanded);
         int categories = hideCategories(runtime, expanded);
-        JustEnoughHiding.LOGGER.info("[JEH] jehide: hid {} ingredients, {} recipes, {} categories",
-            ingredients, recipes, categories);
+        JustEnoughHiding.LOGGER.info(
+            "[JEH] jehide: hid {} ingredients, {} recipes, {} categories (from {} list, {} intent targets)",
+            ingredients, recipes, categories, listCount, intentCount);
+    }
+
+    private static synchronized void ensureListener()
+    {
+        if (listenerRegistered)
+        {
+            return;
+        }
+        listenerRegistered = true;
+        IntentRegistry.query().addListener(intent ->
+        {
+            lastChangeMs = System.currentTimeMillis();
+            dirty = true;
+        });
+    }
+
+    /** Called every client tick: re-apply (debounced) after intent changes. */
+    public static void tick()
+    {
+        if (!dirty)
+        {
+            return;
+        }
+        if (!JehConfig.jehideEnabled() || !JehConfig.jehideApplyIntents() || currentRuntime == null)
+        {
+            dirty = false;
+            return;
+        }
+        if (System.currentTimeMillis() - lastChangeMs < DEBOUNCE_MS)
+        {
+            return;
+        }
+        dirty = false;
+        reapply();
     }
 
     /**

@@ -26,12 +26,14 @@ public final class JehConfig
     private static final ForgeConfigSpec.BooleanValue INTENT_RECORDING_ENABLED;
     private static final ForgeConfigSpec.BooleanValue REVEAL_ENABLED;
     private static final ForgeConfigSpec.BooleanValue JEHIDE_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue JEHIDE_APPLY_INTENTS;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> SORT_MODES;
     private static final ForgeConfigSpec.EnumValue<BookmarkTarget> BOOKMARK_TARGET;
 
     private static volatile boolean intentRecordingEnabled = true;
     private static volatile boolean revealEnabled = true;
     private static volatile boolean jehideEnabled = true;
+    private static volatile boolean jehideApplyIntents = true;
     private static volatile List<String> sortModes = DEFAULT_SORT_MODES;
     private static volatile BookmarkTarget bookmarkTarget = BookmarkTarget.ICON;
 
@@ -71,6 +73,13 @@ public final class JehConfig
                 "changes, or via /jeh apply. Takes precedence over the reveal module for its targets."
             )
             .define("enabled", true);
+        JEHIDE_APPLY_INTENTS = builder
+            .comment(
+                "Also treat recorded intents (hide kinds) as hide rules, so everything the reveal",
+                "module brings back is re-hidden from one place. Re-applied after intent changes",
+                "(debounced). Turn off to keep JEHide driven by the list only."
+            )
+            .define("applyIntents", true);
         builder.pop();
 
         builder.comment("Intent viewer GUI").push("intentView");
@@ -113,6 +122,11 @@ public final class JehConfig
         return jehideEnabled;
     }
 
+    public static boolean jehideApplyIntents()
+    {
+        return jehideApplyIntents;
+    }
+
     public static List<String> sortModes()
     {
         return sortModes;
@@ -132,6 +146,7 @@ public final class JehConfig
         intentRecordingEnabled = INTENT_RECORDING_ENABLED.get();
         revealEnabled = REVEAL_ENABLED.get();
         jehideEnabled = JEHIDE_ENABLED.get();
+        jehideApplyIntents = JEHIDE_APPLY_INTENTS.get();
 
         List<String> cleaned = new ArrayList<>();
         for (String entry : SORT_MODES.get())

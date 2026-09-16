@@ -4,6 +4,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.wdlpiaoyi.justenoughhiding.JustEnoughHiding;
 import com.wdlpiaoyi.justenoughhiding.client.gui.HidingListScreen;
 import com.wdlpiaoyi.justenoughhiding.client.gui.IntentScreen;
+import com.wdlpiaoyi.justenoughhiding.client.jehide.JeHide;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.commands.CommandSourceStack;
@@ -47,6 +48,7 @@ public final class JehClientEvents
         {
             openScreen(HidingListScreen::new);
         }
+        JeHide.tick();
     }
 
     private static int openScreen(Supplier<Screen> screen)
