@@ -1,10 +1,12 @@
 package com.wdlpiaoyi.justenoughhiding.client.gui;
 
 import com.wdlpiaoyi.justenoughhiding.client.gui.column.Columns;
+import com.wdlpiaoyi.justenoughhiding.client.gui.widget.AutocompletePopup;
 import com.wdlpiaoyi.justenoughhiding.client.gui.widget.Dropdown;
 import com.wdlpiaoyi.justenoughhiding.client.gui.widget.PopupMenu;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.Adapters;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.IconRenderer;
+import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetSuggestion;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.ViewerAdapter;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import com.wdlpiaoyi.justenoughhiding.listehiding.ListEHiding;
@@ -34,12 +36,14 @@ public final class HidingListScreen extends Screen
     private static final int TARGET_COLUMN = 1;
     private static final int NOTE_COLUMN = 3;
     private static final String[] SORT_MODES = {"target", "enabled", "note", "kind"};
-    private static final String TARGET_HINT = "Target: item <id> | recipe <type> <id> | category <type> | unset";
+    private static final String TARGET_HINT = "Type an id (item / recipe / category auto-detected); prefix item/recipe/category to override";
+    private static final int SUGGEST_LIMIT = 40;
 
     private final List<Dropdown> dropdowns = new ArrayList<>();
 
     private RowList<ListEHidingEntry> list;
     private EditBox inlineEditor;
+    private AutocompletePopup autocomplete;
     private EditBox search;
     private Dropdown kindDropdown;
     private Dropdown stateDropdown;
@@ -138,7 +142,10 @@ public final class HidingListScreen extends Screen
         inlineEditor = new EditBox(this.font, 0, 0, 10, ROW_HEIGHT, Component.literal("Edit"));
         inlineEditor.setMaxLength(256);
         inlineEditor.visible = false;
+        inlineEditor.setResponder(this::onEditorChanged);
         addRenderableWidget(inlineEditor);
+
+        autocomplete = new AutocompletePopup(this.font, 0, 0, 240, 10);
 
         apply();
     }
@@ -316,6 +323,56 @@ public final class HidingListScreen extends Screen
         setStatus(TARGET_HINT);
     }
 
+    private void onEditorChanged(String text)
+    {
+        if (autocomplete == null)
+        {
+            return;
+        }
+        if (editingColumn != TARGET_COLUMN)
+        {
+            autocomplete.hide();
+            return;
+        }
+        autocomplete.setSuggestions(Adapters.active().suggest(text, SUGGEST_LIMIT));
+        positionAutocomplete();
+    }
+
+    private void positionAutocomplete()
+    {
+        if (autocomplete == null)
+        {
+            return;
+        }
+        int width = Math.max(inlineEditor.getWidth(), 240);
+        int maxX = Math.max(MARGIN, this.width - MARGIN - width);
+        int x = Math.min(Math.max(inlineEditor.getX(), MARGIN), maxX);
+        int height = autocomplete.getHeight();
+        int y = inlineEditor.getY() + ROW_HEIGHT;
+        if (y + height > this.height - 4)
+        {
+            y = Math.max(4, inlineEditor.getY() - height);
+        }
+        autocomplete.setWidth(width);
+        autocomplete.setPosition(x, y);
+    }
+
+    private void acceptSuggestion(TargetSuggestion suggestion)
+    {
+        if (suggestion == null || editingEntry == null)
+        {
+            commitEdit();
+            return;
+        }
+        ListEHidingEntry entry = editingEntry;
+        editingEntry = null;
+        editingColumn = -1;
+        inlineEditor.visible = false;
+        autocomplete.hide();
+        setFocused(null);
+        replace(entry, new ListEHidingEntry(suggestion.target(), entry.enabled(), entry.note()));
+    }
+
     private void startEdit(ListEHidingEntry entry, int column, String initialValue)
     {
         int viewIndex = list.indexOf(entry);
@@ -346,6 +403,7 @@ public final class HidingListScreen extends Screen
         editingEntry = null;
         editingColumn = -1;
         inlineEditor.visible = false;
+        autocomplete.hide();
         setFocused(null);
 
         String text = inlineEditor.getValue();
@@ -370,6 +428,7 @@ public final class HidingListScreen extends Screen
         editingEntry = null;
         editingColumn = -1;
         inlineEditor.visible = false;
+        autocomplete.hide();
         setFocused(null);
     }
 
@@ -429,8 +488,11 @@ public final class HidingListScreen extends Screen
             return IntentTarget.of(type, recipeId);
         }
 
-        String uid = lower.startsWith("item ") ? text.substring("item ".length()).trim() : text;
-        return Adapters.active().ingredientTarget(uid);
+        if (lower.startsWith("item "))
+        {
+            return Adapters.active().ingredientTarget(text.substring("item ".length()).trim());
+        }
+        return Adapters.active().detect(text);
     }
 
     private void setStatus(String message)
@@ -443,7 +505,7 @@ public final class HidingListScreen extends Screen
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick)
     {
         Dropdown openDropdown = openDropdown();
-        list.setHoverEnabled(openDropdown == null);
+        list.setHoverEnabled(openDropdown == null && (autocomplete == null || !autocomplete.isVisible()));
 
         this.renderBackground(guiGraphics);
         super.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -460,6 +522,11 @@ public final class HidingListScreen extends Screen
             openDropdown.render(guiGraphics, mouseX, mouseY, partialTick);
         }
 
+        if (autocomplete != null && autocomplete.isVisible())
+        {
+            autocomplete.render(guiGraphics, mouseX, mouseY, partialTick);
+        }
+
         guiGraphics.drawString(this.font, this.title, MARGIN, 8, 0xFFFFFFFF, true);
         guiGraphics.drawString(this.font, listSize() + " entries", MARGIN, 19, 0xFFA0A0A0, false);
         if (System.currentTimeMillis() < this.statusUntil)
@@ -471,7 +538,7 @@ public final class HidingListScreen extends Screen
         {
             menu.render(guiGraphics, mouseX, mouseY, partialTick);
         }
-        else if (openDropdown == null)
+        else if (openDropdown == null && (autocomplete == null || !autocomplete.isVisible()))
         {
             if (!drawDropdownTooltip(mouseX, mouseY))
             {
@@ -547,6 +614,20 @@ public final class HidingListScreen extends Screen
             return true;
         }
 
+        if (autocomplete != null && autocomplete.isVisible())
+        {
+            TargetSuggestion picked = autocomplete.mouseClicked(mouseX, mouseY);
+            if (picked != null)
+            {
+                acceptSuggestion(picked);
+                return true;
+            }
+            if (autocomplete.isOver(mouseX, mouseY))
+            {
+                return true;
+            }
+        }
+
         if (editingEntry != null && !isOver(inlineEditor, mouseX, mouseY))
         {
             commitEdit();
@@ -590,6 +671,25 @@ public final class HidingListScreen extends Screen
                 cancelEdit();
                 return true;
             }
+            if (autocomplete != null && autocomplete.isVisible())
+            {
+                if (keyCode == GLFW.GLFW_KEY_DOWN)
+                {
+                    autocomplete.moveHighlight(1);
+                    return true;
+                }
+                if (keyCode == GLFW.GLFW_KEY_UP)
+                {
+                    autocomplete.moveHighlight(-1);
+                    return true;
+                }
+                if (keyCode == GLFW.GLFW_KEY_TAB
+                    || keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)
+                {
+                    acceptSuggestion(autocomplete.getHighlighted());
+                    return true;
+                }
+            }
             if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)
             {
                 commitEdit();
@@ -602,6 +702,11 @@ public final class HidingListScreen extends Screen
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta)
     {
+        if (autocomplete != null && autocomplete.isVisible()
+            && autocomplete.mouseScrolled(mouseX, mouseY, delta))
+        {
+            return true;
+        }
         for (Dropdown dropdown : dropdowns)
         {
             if (dropdown.isOpen() && dropdown.mouseScrolled(mouseX, mouseY, delta))

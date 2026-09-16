@@ -5,6 +5,7 @@ import com.wdlpiaoyi.justenoughhiding.JustEnoughHiding;
 import com.wdlpiaoyi.justenoughhiding.client.gui.column.Column;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.DefaultColumns;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.IconRenderer;
+import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetSuggestion;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.ViewerAdapter;
 import com.wdlpiaoyi.justenoughhiding.intent.IngredientKey;
 import com.wdlpiaoyi.justenoughhiding.intent.Intent;
@@ -16,9 +17,11 @@ import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.runtime.IJeiKeyMapping;
 import mezz.jei.api.runtime.IJeiRuntime;
+import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.registries.ForgeRegistries;
 
@@ -34,6 +37,9 @@ public final class JeiAdapter implements ViewerAdapter
     private final JeiReveal reveal = new JeiReveal();
     private final Map<String, ItemStack> iconCache = new ConcurrentHashMap<>();
     private volatile IJeiRuntime runtime;
+    private volatile JeiTargetIndex targetIndex;
+    private volatile IJeiRuntime indexRuntime;
+    private volatile Level indexLevel;
 
     @Override
     public String id()
@@ -123,6 +129,34 @@ public final class JeiAdapter implements ViewerAdapter
     }
 
     @Override
+    public List<TargetSuggestion> suggest(String query, int limit)
+    {
+        return index().suggest(query, limit);
+    }
+
+    @Override
+    public IntentTarget detect(String text)
+    {
+        return index().detect(text);
+    }
+
+    private JeiTargetIndex index()
+    {
+        IJeiRuntime currentRuntime = this.runtime;
+        Level currentLevel = Minecraft.getInstance().level;
+        JeiTargetIndex cached = this.targetIndex;
+        if (cached != null && this.indexRuntime == currentRuntime && this.indexLevel == currentLevel)
+        {
+            return cached;
+        }
+        JeiTargetIndex built = JeiTargetIndex.build(currentRuntime, currentLevel);
+        this.targetIndex = built;
+        this.indexRuntime = currentRuntime;
+        this.indexLevel = currentLevel;
+        return built;
+    }
+
+    @Override
     public void onRuntimeAvailable(Object runtime)
     {
         if (!(runtime instanceof IJeiRuntime jeiRuntime))
@@ -130,6 +164,7 @@ public final class JeiAdapter implements ViewerAdapter
             return;
         }
         this.runtime = jeiRuntime;
+        this.targetIndex = null;
         reveal.activate(jeiRuntime);
         JeiIntentScanner.scan(jeiRuntime);
         JustEnoughHiding.LOGGER.info("[JEH] intents recorded for this runtime: {} entries", IntentRegistry.size());
@@ -139,6 +174,7 @@ public final class JeiAdapter implements ViewerAdapter
     public void onRuntimeUnavailable()
     {
         this.runtime = null;
+        this.targetIndex = null;
         reveal.deactivate();
         IntentRegistry.clear();
     }
