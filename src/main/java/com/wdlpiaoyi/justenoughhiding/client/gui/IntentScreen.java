@@ -9,6 +9,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -63,33 +64,46 @@ public final class IntentScreen extends Screen
 
         int buttonX = search.getX() + search.getWidth() + 6;
 
-        refreshButton = Button.builder(Component.literal("Refresh"), b -> refresh()).bounds(buttonX, TOP, 60, ROW_HEIGHT).build();
+        refreshButton = Button.builder(Component.literal("Refresh"), b -> refresh())
+            .tooltip(Tooltip.create(Component.literal("Re-read the recorded intents")))
+            .bounds(buttonX, TOP, 60, ROW_HEIGHT).build();
         addRenderableWidget(refreshButton);
         buttonX += 64;
 
-        exportViewButton = Button.builder(Component.literal("Export View"), b -> exportView()).bounds(buttonX, TOP, 90, ROW_HEIGHT).build();
+        exportViewButton = Button.builder(Component.literal("Export View"), b -> exportView())
+            .tooltip(Tooltip.create(Component.literal("Write the currently filtered and sorted rows to logs/justenoughhiding/intents.txt")))
+            .bounds(buttonX, TOP, 90, ROW_HEIGHT).build();
         addRenderableWidget(exportViewButton);
         buttonX += 94;
 
-        exportAllButton = Button.builder(Component.literal("Export All"), b -> exportAll()).bounds(buttonX, TOP, 84, ROW_HEIGHT).build();
+        exportAllButton = Button.builder(Component.literal("Export All"), b -> exportAll())
+            .tooltip(Tooltip.create(Component.literal("Write all recorded intents (sorted) to logs/justenoughhiding/intents.txt")))
+            .bounds(buttonX, TOP, 84, ROW_HEIGHT).build();
         addRenderableWidget(exportAllButton);
         buttonX += 88;
 
-        copyUidButton = Button.builder(Component.literal("Copy UID"), b -> copy(true)).bounds(buttonX, TOP, 74, ROW_HEIGHT).build();
+        copyUidButton = Button.builder(Component.literal("Copy UID"), b -> copy(true))
+            .tooltip(Tooltip.create(Component.literal("Copy the selected row's ingredient uid to the clipboard")))
+            .bounds(buttonX, TOP, 74, ROW_HEIGHT).build();
         addRenderableWidget(copyUidButton);
         buttonX += 78;
 
-        copyLineButton = Button.builder(Component.literal("Copy Line"), b -> copy(false)).bounds(buttonX, TOP, 78, ROW_HEIGHT).build();
+        copyLineButton = Button.builder(Component.literal("Copy Line"), b -> copy(false))
+            .tooltip(Tooltip.create(Component.literal("Copy the selected row as a text line to the clipboard")))
+            .bounds(buttonX, TOP, 78, ROW_HEIGHT).build();
         addRenderableWidget(copyLineButton);
 
         int dropdownY = TOP + ROW_HEIGHT + 4;
         List<String> sortOptions = JehConfig.sortModes();
         sourceDropdown = new Dropdown(this.font, MARGIN, dropdownY, 150, ROW_HEIGHT,
-            optionList(intent -> intent.source().id()), "All", value -> apply());
+            optionList(intent -> intent.source().id()), "All", value -> apply())
+            .tooltip(Component.literal("Filter by source: a mod id, \"JEI edit mode\", \"tag\", or \"server\""));
         kindDropdown = new Dropdown(this.font, MARGIN + 156, dropdownY, 160, ROW_HEIGHT,
-            optionList(intent -> intent.kind().name()), "All", value -> apply());
+            optionList(intent -> intent.kind().name()), "All", value -> apply())
+            .tooltip(Component.literal("Filter by intent kind (REMOVED, HIDDEN, ABSENT_FROM_JEI, ...)"));
         sortDropdown = new Dropdown(this.font, MARGIN + 322, dropdownY, 170, ROW_HEIGHT,
-            sortOptions, sortOptions.get(0), value -> apply());
+            sortOptions, sortOptions.get(0), value -> apply())
+            .tooltip(Component.literal("Sort order. Add your own in config/justenoughhiding-client.toml under [intentView] sortModes"));
         dropdowns.add(sourceDropdown);
         dropdowns.add(kindDropdown);
         dropdowns.add(sortDropdown);
@@ -275,7 +289,21 @@ public final class IntentScreen extends Screen
             guiGraphics.drawString(this.font, this.status, this.width - MARGIN - this.font.width(this.status), 8, 0xFFFFE080, false);
         }
 
-        Intent hovered = openDropdown() == null ? list.intentAt(mouseX, mouseY) : null;
+        if (openDropdown() != null)
+        {
+            return;
+        }
+
+        for (Dropdown dropdown : dropdowns)
+        {
+            if (dropdown.isOverButton(mouseX, mouseY) && dropdown.getTooltip() != null)
+            {
+                this.setTooltipForNextRenderPass(List.of(dropdown.getTooltip().getVisualOrderText()));
+                return;
+            }
+        }
+
+        Intent hovered = list.intentAt(mouseX, mouseY);
         if (hovered != null)
         {
             this.setTooltipForNextRenderPass(List.of(

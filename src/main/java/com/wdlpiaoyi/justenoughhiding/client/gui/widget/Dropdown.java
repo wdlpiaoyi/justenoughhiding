@@ -5,6 +5,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.network.chat.Component;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -26,6 +27,7 @@ public final class Dropdown implements Renderable
     private String value;
     private boolean open;
     private int scroll;
+    private Component tooltip;
 
     public Dropdown(Font font, int x, int y, int width, int height, List<String> options, String initial, Consumer<String> onSelect)
     {
@@ -39,6 +41,17 @@ public final class Dropdown implements Renderable
         this.onSelect = onSelect;
     }
 
+    public Dropdown tooltip(Component tooltip)
+    {
+        this.tooltip = tooltip;
+        return this;
+    }
+
+    public Component getTooltip()
+    {
+        return tooltip;
+    }
+
     public String getValue()
     {
         return value;
@@ -47,6 +60,11 @@ public final class Dropdown implements Renderable
     public int getX()
     {
         return x;
+    }
+
+    public boolean isOverButton(double mouseX, double mouseY)
+    {
+        return isOver(mouseX, mouseY, x, y, width, height);
     }
 
     public Rect2i bounds()
