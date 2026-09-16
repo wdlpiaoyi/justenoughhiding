@@ -7,7 +7,6 @@ public enum IntentKind
     HIDDEN(true, false),
     SHOWN(false, true),
     EDIT_MODE_HIDDEN(true, false),
-    EDIT_MODE_SHOWN(false, true),
     TAG_HIDDEN(true, false),
     ABSENT_FROM_JEI(true, false),
     SERVER_MISSING(true, false),

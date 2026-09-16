@@ -82,6 +82,15 @@ public final class IntentRegistry implements IntentQuery
         INSTANCE.entries.keySet().removeIf(key -> sourceId.equals(key.sourceId()));
     }
 
+    public static void remove(IntentTarget target, String sourceId)
+    {
+        if (target == null || sourceId == null)
+        {
+            return;
+        }
+        INSTANCE.entries.remove(new Key(target, sourceId));
+    }
+
     public static int size()
     {
         return INSTANCE.entries.size();

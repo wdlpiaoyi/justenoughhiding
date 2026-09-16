@@ -31,6 +31,7 @@ public class EditModeConfigIntentMixin
     @Inject(method = "showIngredientUsingConfigFile", at = @At("HEAD"), remap = false, require = 0)
     private void jeh$onEditModeShow(ITypedIngredient<?> ingredient, IEditModeConfig.HideMode mode, CallbackInfo ci)
     {
-        JeiIntentRecorder.recordTyped(this.ingredientManager, ingredient, IntentKind.EDIT_MODE_SHOWN, IntentSource.JEI_EDIT_MODE);
+        // Returning to the default (visible) state is not an intent, so forget the hidden entry instead of recording a show.
+        JeiIntentRecorder.removeTyped(this.ingredientManager, ingredient, IntentSource.JEI_EDIT_MODE);
     }
 }

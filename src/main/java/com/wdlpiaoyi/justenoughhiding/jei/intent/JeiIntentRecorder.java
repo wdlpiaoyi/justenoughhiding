@@ -94,7 +94,6 @@ public final class JeiIntentRecorder
         }
     }
 
-    @SuppressWarnings("unchecked")
     public static void recordTyped(
         IIngredientManager manager,
         ITypedIngredient<?> typed,
@@ -111,18 +110,53 @@ public final class JeiIntentRecorder
         {
             return;
         }
+        IntentTarget target = targetOf(manager, typed);
+        if (target != null)
+        {
+            IntentRegistry.record(target, kind, source);
+        }
+    }
+
+    /**
+     * Forget a previously recorded intent for this ingredient from the given source.
+     * Used when an action simply returns an ingredient to its default state,
+     * e.g. un-hiding via JEI edit mode: "not hidden" is the default, so no entry is kept.
+     */
+    public static void removeTyped(IIngredientManager manager, ITypedIngredient<?> typed, IntentSource fixedSource)
+    {
+        if (disabled() || manager == null || typed == null)
+        {
+            return;
+        }
+        IntentSource source = fixedSource != null ? fixedSource : currentSource();
+        if (isSelf(source))
+        {
+            return;
+        }
+        IntentTarget target = targetOf(manager, typed);
+        if (target != null)
+        {
+            IntentRegistry.remove(target, source.id());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static IntentTarget targetOf(IIngredientManager manager, ITypedIngredient<?> typed)
+    {
         try
         {
             IIngredientType<Object> type = (IIngredientType<Object>) typed.getType();
             IIngredientHelper<Object> helper = (IIngredientHelper<Object>) manager.getIngredientHelper(type);
             String uid = helper.getUniqueId(typed.getIngredient(), UidContext.Ingredient);
-            if (uid != null)
+            if (uid == null)
             {
-                IntentRegistry.record(IntentTarget.of(IngredientKey.of(type.getUid(), uid)), kind, source);
+                return null;
             }
+            return IntentTarget.of(IngredientKey.of(type.getUid(), uid));
         }
-        catch (Throwable ignored)
+        catch (Throwable t)
         {
+            return null;
         }
     }
 
