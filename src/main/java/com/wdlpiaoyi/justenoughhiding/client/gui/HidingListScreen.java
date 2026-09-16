@@ -156,7 +156,7 @@ public final class HidingListScreen extends Screen
             Columns.<ListEHidingEntry>fixed(44, entry -> isIntentRow(entry) ? "" : Integer.toString(entry.priority()),
                 entry -> isIntentRow(entry) ? 0xFF909090 : 0xFFC0C0FF),
             Columns.<ListEHidingEntry>fixed(64, entry -> entry.enabled() ? "enabled" : "disabled",
-                entry -> isIntentRow(entry) ? 0xFF909090 : (entry.enabled() ? 0xFF70FF70 : 0xFFFF7070)),
+                entry -> entry.enabled() ? 0xFF70FF70 : 0xFFFF7070),
             Columns.<ListEHidingEntry>fixed(200, ListEHidingEntry::note,
                 entry -> isIntentRow(entry) ? 0xFF808080 : 0xFFB0B0B0)
         ));

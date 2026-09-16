@@ -61,6 +61,8 @@ public final class JeHide
     private static volatile boolean dirty;
     private static volatile long lastChangeMs;
     private static volatile boolean lastEditMode;
+    private static volatile boolean lastEnabled = true;
+    private static volatile boolean lastApplyIntents = true;
     private static boolean listenerRegistered;
 
     private JeHide()
@@ -139,15 +141,27 @@ public final class JeHide
         listenerRegistered = true;
         IntentRegistry.query().addListener(intent ->
         {
-            lastChangeMs = System.currentTimeMillis();
-            dirty = true;
+            if (JehConfig.jehideEnabled() && JehConfig.jehideApplyIntents())
+            {
+                lastChangeMs = System.currentTimeMillis();
+                dirty = true;
+            }
         });
     }
 
-    /** Called every client tick: re-apply (debounced) after intent changes. */
+    /** Called every client tick: re-apply (debounced) after intent/config/edit-mode changes. */
     public static void tick()
     {
-        if (JehConfig.jehideEnabled() && JehConfig.jehideApplyIntents())
+        boolean enabled = JehConfig.jehideEnabled();
+        boolean applyIntents = JehConfig.jehideApplyIntents();
+        if (enabled != lastEnabled || applyIntents != lastApplyIntents)
+        {
+            lastEnabled = enabled;
+            lastApplyIntents = applyIntents;
+            dirty = true;
+            lastChangeMs = System.currentTimeMillis();
+        }
+        if (enabled && applyIntents)
         {
             boolean editMode = JehEditMode.isEditModeEnabled();
             if (editMode != lastEditMode)
@@ -161,7 +175,7 @@ public final class JeHide
         {
             return;
         }
-        if (!JehConfig.jehideEnabled() || !JehConfig.jehideApplyIntents() || currentRuntime == null)
+        if (currentRuntime == null)
         {
             dirty = false;
             return;
