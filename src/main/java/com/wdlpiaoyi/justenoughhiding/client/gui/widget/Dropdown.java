@@ -123,6 +123,11 @@ public final class Dropdown implements Renderable
             return;
         }
 
+        // Draw the popup above item icons: item models render at an elevated z, so a plain
+        // GUI fill would otherwise fail the depth test and let icons show through un-dimmed.
+        guiGraphics.pose().pushPose();
+        guiGraphics.pose().translate(0.0F, 0.0F, 300.0F);
+
         int visible = visibleOptions();
         int popupTop = y + height;
         int popupBottom = popupTop + visible * OPTION_HEIGHT;
@@ -144,6 +149,8 @@ public final class Dropdown implements Renderable
         }
 
         drawPopupScrollbar(guiGraphics, popupTop, visible);
+
+        guiGraphics.pose().popPose();
     }
 
     private void drawPopupScrollbar(GuiGraphics guiGraphics, int popupTop, int visible)
