@@ -14,6 +14,7 @@ import com.wdlpiaoyi.justenoughhiding.intent.IngredientKey;
 import com.wdlpiaoyi.justenoughhiding.intent.Intent;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentRegistry;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
+import com.wdlpiaoyi.justenoughhiding.jei.JeiRecipeReveal;
 import com.wdlpiaoyi.justenoughhiding.jei.JeiReveal;
 import com.wdlpiaoyi.justenoughhiding.jei.intent.JeiIntentScanner;
 import mezz.jei.api.constants.VanillaTypes;
@@ -318,6 +319,7 @@ public final class JeiAdapter implements ViewerAdapter
         this.runtime = jeiRuntime;
         this.targetIndex = null;
         reveal.activate(jeiRuntime);
+        JeiRecipeReveal.reveal(jeiRuntime);
         JeiIntentScanner.scan(jeiRuntime);
         JustEnoughHiding.LOGGER.info("[JEH] intents recorded for this runtime: {} entries", IntentRegistry.size());
     }

@@ -1,6 +1,7 @@
 package com.wdlpiaoyi.justenoughhiding.jei;
 
 import com.wdlpiaoyi.justenoughhiding.JustEnoughHiding;
+import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
 import com.wdlpiaoyi.justenoughhiding.intent.IngredientKey;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentKind;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentRegistry;
@@ -8,6 +9,7 @@ import com.wdlpiaoyi.justenoughhiding.intent.IntentSource;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.IIngredientHelper;
+import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.ingredients.subtypes.UidContext;
 import mezz.jei.api.runtime.IIngredientManager;
@@ -22,7 +24,9 @@ import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -30,7 +34,11 @@ import java.util.stream.Collectors;
 
 public final class JeiReveal
 {
-    private final Queue<ItemStack> removedStacks = new ConcurrentLinkedQueue<>();
+    private record Removal(IIngredientType<?> type, Object ingredient)
+    {
+    }
+
+    private final Queue<Removal> removedIngredients = new ConcurrentLinkedQueue<>();
     private IJeiRuntime runtime;
     private boolean ticking;
 
@@ -39,39 +47,62 @@ public final class JeiReveal
         this.runtime = jeiRuntime;
         jeiRuntime.getIngredientManager().registerIngredientListener(new RemovalCollector());
         beginTicking();
-        revealMissing(jeiRuntime);
+        if (JehConfig.revealEnabled())
+        {
+            revealMissing(jeiRuntime);
+        }
     }
 
     public void deactivate()
     {
         this.runtime = null;
-        this.removedStacks.clear();
+        this.removedIngredients.clear();
         stopTicking();
     }
 
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event)
     {
-        if (event.phase != TickEvent.Phase.END || this.removedStacks.isEmpty())
+        if (event.phase != TickEvent.Phase.END || this.removedIngredients.isEmpty())
         {
             return;
         }
 
         IJeiRuntime current = this.runtime;
-        if (current == null)
+        if (current == null || !JehConfig.revealEnabled())
         {
-            this.removedStacks.clear();
+            this.removedIngredients.clear();
             return;
         }
 
-        List<ItemStack> batch = new ArrayList<>();
-        for (ItemStack stack = this.removedStacks.poll(); stack != null; stack = this.removedStacks.poll())
+        Map<IIngredientType<?>, List<Object>> byType = new LinkedHashMap<>();
+        for (Removal removal = this.removedIngredients.poll(); removal != null; removal = this.removedIngredients.poll())
         {
-            batch.add(stack);
+            byType.computeIfAbsent(removal.type(), ignored -> new ArrayList<>()).add(removal.ingredient());
         }
 
-        current.getIngredientManager().addIngredientsAtRuntime(VanillaTypes.ITEM_STACK, batch);
-        JustEnoughHiding.LOGGER.info("[JEH] reveal: restored {} item stacks that were removed from JEI", batch.size());
+        IIngredientManager manager = current.getIngredientManager();
+        int restored = 0;
+        for (Map.Entry<IIngredientType<?>, List<Object>> entry : byType.entrySet())
+        {
+            try
+            {
+                addRaw(manager, entry.getKey(), entry.getValue());
+                restored += entry.getValue().size();
+            }
+            catch (Throwable t)
+            {
+                JustEnoughHiding.LOGGER.warn("[JEH] reveal: failed to restore ingredients of type {}",
+                    entry.getKey(), t);
+            }
+        }
+        JustEnoughHiding.LOGGER.info("[JEH] reveal: restored {} ingredients that were removed from JEI", restored);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static void addRaw(IIngredientManager manager, IIngredientType<?> type, List<Object> ingredients)
+    {
+        manager.addIngredientsAtRuntime((IIngredientType) type, (Collection) ingredients);
     }
 
     private void beginTicking()
@@ -104,10 +135,17 @@ public final class JeiReveal
         {
             for (ITypedIngredient<V> ingredient : ingredients)
             {
-                ItemStack stack = ingredient.getIngredient(VanillaTypes.ITEM_STACK).orElse(null);
-                if (stack != null)
+                try
                 {
-                    JeiReveal.this.removedStacks.add(stack);
+                    IIngredientType<V> type = ingredient.getType();
+                    V value = ingredient.getIngredient();
+                    if (type != null && value != null)
+                    {
+                        JeiReveal.this.removedIngredients.add(new Removal(type, value));
+                    }
+                }
+                catch (Throwable ignored)
+                {
                 }
             }
         }

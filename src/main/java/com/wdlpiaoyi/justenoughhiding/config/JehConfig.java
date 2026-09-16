@@ -24,10 +24,12 @@ public final class JehConfig
     }
 
     private static final ForgeConfigSpec.BooleanValue INTENT_RECORDING_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue REVEAL_ENABLED;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> SORT_MODES;
     private static final ForgeConfigSpec.EnumValue<BookmarkTarget> BOOKMARK_TARGET;
 
     private static volatile boolean intentRecordingEnabled = true;
+    private static volatile boolean revealEnabled = true;
     private static volatile List<String> sortModes = DEFAULT_SORT_MODES;
     private static volatile BookmarkTarget bookmarkTarget = BookmarkTarget.ICON;
 
@@ -42,6 +44,18 @@ public final class JehConfig
                 "runtime removal/addition, visibility changes, JEI edit mode, hidden tags,",
                 "server-side absence, and recipe/category hiding.",
                 "Dev builds default to true. Turn this off to disable all recording."
+            )
+            .define("enabled", true);
+        builder.pop();
+
+        builder.comment("Reveal module").push("reveal");
+        REVEAL_ENABLED = builder
+            .comment(
+                "Bypass hiding when JEI starts:",
+                "ingredients hidden by tags, JEI edit mode or the blacklist are shown again;",
+                "ingredients removed at runtime are restored (any ingredient type);",
+                "hidden recipes and recipe categories are unhidden.",
+                "Toggling this at runtime does not undo reveals that were already applied."
             )
             .define("enabled", true);
         builder.pop();
@@ -76,6 +90,11 @@ public final class JehConfig
         return intentRecordingEnabled;
     }
 
+    public static boolean revealEnabled()
+    {
+        return revealEnabled;
+    }
+
     public static List<String> sortModes()
     {
         return sortModes;
@@ -93,6 +112,7 @@ public final class JehConfig
             return;
         }
         intentRecordingEnabled = INTENT_RECORDING_ENABLED.get();
+        revealEnabled = REVEAL_ENABLED.get();
 
         List<String> cleaned = new ArrayList<>();
         for (String entry : SORT_MODES.get())

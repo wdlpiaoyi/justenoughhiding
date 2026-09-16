@@ -1,5 +1,6 @@
 package com.wdlpiaoyi.justenoughhiding.mixin.jei;
 
+import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.ingredients.subtypes.UidContext;
@@ -21,6 +22,10 @@ public class RevealMixin
     )
     private void jeh$reveal(ITypedIngredient<?> typedIngredient, IIngredientHelper<?> ingredientHelper, UidContext context, CallbackInfoReturnable<Boolean> cir)
     {
+        if (!JehConfig.revealEnabled())
+        {
+            return;
+        }
         cir.setReturnValue(Boolean.TRUE);
     }
 }
