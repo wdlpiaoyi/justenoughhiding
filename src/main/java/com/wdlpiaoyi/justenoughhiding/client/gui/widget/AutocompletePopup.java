@@ -59,6 +59,11 @@ public final class AutocompletePopup implements Renderable
         return !suggestions.isEmpty();
     }
 
+    public List<TargetSuggestion> getSuggestions()
+    {
+        return suggestions;
+    }
+
     public TargetSuggestion getHighlighted()
     {
         return highlighted >= 0 && highlighted < suggestions.size() ? suggestions.get(highlighted) : null;
@@ -129,23 +134,7 @@ public final class AutocompletePopup implements Renderable
             guiGraphics.drawString(font, fit(suggestions.get(index).label()), x + 4, rowY + 2, 0xFFFFFFFF, false);
         }
 
-        drawScrollbar(guiGraphics);
         guiGraphics.pose().popPose();
-    }
-
-    private void drawScrollbar(GuiGraphics guiGraphics)
-    {
-        int maxScroll = Math.max(0, suggestions.size() - visibleRows());
-        if (maxScroll <= 0)
-        {
-            return;
-        }
-        int barX = x + width - 3;
-        int trackHeight = visibleRows() * ROW_HEIGHT;
-        int thumbHeight = Math.max(8, trackHeight * visibleRows() / suggestions.size());
-        int thumbY = y + (trackHeight - thumbHeight) * scroll / maxScroll;
-        guiGraphics.fill(barX, y, barX + 2, y + trackHeight, 0x80000000);
-        guiGraphics.fill(barX, thumbY, barX + 2, thumbY + thumbHeight, 0xFFA0A0A0);
     }
 
     public TargetSuggestion mouseClicked(double mouseX, double mouseY)

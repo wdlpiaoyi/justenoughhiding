@@ -277,6 +277,26 @@ public final class RowList<T> implements Renderable
         return true;
     }
 
+    /** Column index under the given screen X, or -1 when outside the row area. */
+    public int columnAt(int mouseX)
+    {
+        if (columns.isEmpty() || mouseX < x || mouseX >= x + width - SCROLLBAR_WIDTH)
+        {
+            return -1;
+        }
+        int[] widths = columnWidths(x + width - SCROLLBAR_WIDTH - x);
+        int left = x + 2;
+        for (int i = 0; i < widths.length; i++)
+        {
+            if (mouseX >= left && mouseX < left + widths[i])
+            {
+                return i;
+            }
+            left += widths[i];
+        }
+        return -1;
+    }
+
     public T rowAt(int mouseX, int mouseY)
     {
         int barX = x + width - SCROLLBAR_WIDTH;

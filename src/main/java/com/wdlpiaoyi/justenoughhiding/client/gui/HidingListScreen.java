@@ -55,6 +55,9 @@ public final class HidingListScreen extends Screen
 
     private ListEHidingEntry editingEntry;
     private int editingColumn = -1;
+    private long lastClickTime;
+    private ListEHidingEntry lastClickRow;
+    private int lastClickColumn = -1;
     private PopupMenu menu;
     private int menuX;
     private int menuY;
@@ -332,10 +335,45 @@ public final class HidingListScreen extends Screen
         if (editingColumn != TARGET_COLUMN)
         {
             autocomplete.hide();
+            inlineEditor.setSuggestion("");
             return;
         }
         autocomplete.setSuggestions(Adapters.active().suggest(text, SUGGEST_LIMIT));
         positionAutocomplete();
+        updateGhostText(text);
+    }
+
+    private void updateGhostText(String text)
+    {
+        if (text == null || text.isEmpty())
+        {
+            inlineEditor.setSuggestion("");
+            return;
+        }
+        String lower = text.toLowerCase(Locale.ROOT);
+        for (TargetSuggestion suggestion : autocomplete.getSuggestions())
+        {
+            String completion = suggestion.completion();
+            if (completion != null && completion.length() > text.length()
+                && completion.toLowerCase(Locale.ROOT).startsWith(lower))
+            {
+                inlineEditor.setSuggestion(completion.substring(text.length()));
+                return;
+            }
+        }
+        inlineEditor.setSuggestion("");
+    }
+
+    private void completeHighlighted()
+    {
+        TargetSuggestion suggestion = autocomplete.getHighlighted();
+        if (suggestion == null)
+        {
+            return;
+        }
+        String completion = suggestion.completion();
+        inlineEditor.setValue(completion);
+        inlineEditor.setCursorPosition(completion.length());
     }
 
     private void positionAutocomplete()
@@ -368,9 +406,46 @@ public final class HidingListScreen extends Screen
         editingEntry = null;
         editingColumn = -1;
         inlineEditor.visible = false;
+        inlineEditor.setSuggestion("");
         autocomplete.hide();
         setFocused(null);
         replace(entry, new ListEHidingEntry(suggestion.target(), entry.enabled(), entry.note()));
+    }
+
+    private boolean handleDoubleClick(double mouseX, double mouseY)
+    {
+        ListEHidingEntry row = list.rowAt((int) mouseX, (int) mouseY);
+        if (row == null)
+        {
+            lastClickRow = null;
+            lastClickColumn = -1;
+            return false;
+        }
+        int column = list.columnAt((int) mouseX);
+        long now = System.currentTimeMillis();
+        boolean doubleClick = row == lastClickRow && column == lastClickColumn
+            && now - lastClickTime <= 300L
+            && (column == TARGET_COLUMN || column == NOTE_COLUMN);
+
+        lastClickRow = row;
+        lastClickColumn = column;
+        lastClickTime = now;
+
+        if (!doubleClick)
+        {
+            return false;
+        }
+        lastClickRow = null;
+        lastClickColumn = -1;
+        if (column == TARGET_COLUMN)
+        {
+            startTargetEdit(row);
+        }
+        else
+        {
+            startNoteEdit(row);
+        }
+        return true;
     }
 
     private void startEdit(ListEHidingEntry entry, int column, String initialValue)
@@ -403,6 +478,7 @@ public final class HidingListScreen extends Screen
         editingEntry = null;
         editingColumn = -1;
         inlineEditor.visible = false;
+        inlineEditor.setSuggestion("");
         autocomplete.hide();
         setFocused(null);
 
@@ -428,6 +504,7 @@ public final class HidingListScreen extends Screen
         editingEntry = null;
         editingColumn = -1;
         inlineEditor.visible = false;
+        inlineEditor.setSuggestion("");
         autocomplete.hide();
         setFocused(null);
     }
@@ -649,10 +726,16 @@ public final class HidingListScreen extends Screen
             }
         }
 
+        if (button == 0 && handleDoubleClick(mouseX, mouseY))
+        {
+            return true;
+        }
+
         if (list.mouseClicked(mouseX, mouseY, button))
         {
             return true;
         }
+
         boolean handled = super.mouseClicked(mouseX, mouseY, button);
         if (handled && getFocused() instanceof Button)
         {
@@ -683,8 +766,12 @@ public final class HidingListScreen extends Screen
                     autocomplete.moveHighlight(-1);
                     return true;
                 }
-                if (keyCode == GLFW.GLFW_KEY_TAB
-                    || keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)
+                if (keyCode == GLFW.GLFW_KEY_TAB)
+                {
+                    completeHighlighted();
+                    return true;
+                }
+                if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)
                 {
                     acceptSuggestion(autocomplete.getHighlighted());
                     return true;
