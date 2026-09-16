@@ -25,11 +25,13 @@ public final class JehConfig
 
     private static final ForgeConfigSpec.BooleanValue INTENT_RECORDING_ENABLED;
     private static final ForgeConfigSpec.BooleanValue REVEAL_ENABLED;
+    private static final ForgeConfigSpec.BooleanValue JEHIDE_ENABLED;
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> SORT_MODES;
     private static final ForgeConfigSpec.EnumValue<BookmarkTarget> BOOKMARK_TARGET;
 
     private static volatile boolean intentRecordingEnabled = true;
     private static volatile boolean revealEnabled = true;
+    private static volatile boolean jehideEnabled = true;
     private static volatile List<String> sortModes = DEFAULT_SORT_MODES;
     private static volatile BookmarkTarget bookmarkTarget = BookmarkTarget.ICON;
 
@@ -56,6 +58,17 @@ public final class JehConfig
                 "ingredients removed at runtime are restored (any ingredient type);",
                 "hidden recipes and recipe categories are unhidden.",
                 "Toggling this at runtime does not undo reveals that were already applied."
+            )
+            .define("enabled", true);
+        builder.pop();
+
+        builder.comment("JEHide: hide ListEHiding entries from JEI").push("jehide");
+        JEHIDE_ENABLED = builder
+            .comment(
+                "Read the enabled entries of config/jeh/listehiding.json and hide the matching",
+                "ingredients, recipes and recipe categories from JEI (runtime visibility only,",
+                "never written to JEI's config files). Re-applied when JEI starts, when the list",
+                "changes, or via /jeh apply. Takes precedence over the reveal module for its targets."
             )
             .define("enabled", true);
         builder.pop();
@@ -95,6 +108,11 @@ public final class JehConfig
         return revealEnabled;
     }
 
+    public static boolean jehideEnabled()
+    {
+        return jehideEnabled;
+    }
+
     public static List<String> sortModes()
     {
         return sortModes;
@@ -113,6 +131,7 @@ public final class JehConfig
         }
         intentRecordingEnabled = INTENT_RECORDING_ENABLED.get();
         revealEnabled = REVEAL_ENABLED.get();
+        jehideEnabled = JEHIDE_ENABLED.get();
 
         List<String> cleaned = new ArrayList<>();
         for (String entry : SORT_MODES.get())

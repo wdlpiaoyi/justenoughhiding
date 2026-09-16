@@ -3,6 +3,7 @@ package com.wdlpiaoyi.justenoughhiding.client.viewer.jei;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.wdlpiaoyi.justenoughhiding.JustEnoughHiding;
 import com.wdlpiaoyi.justenoughhiding.client.gui.column.Column;
+import com.wdlpiaoyi.justenoughhiding.client.jehide.JeHide;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.DefaultColumns;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.IconRenderer;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetKind;
@@ -320,6 +321,7 @@ public final class JeiAdapter implements ViewerAdapter
         this.targetIndex = null;
         reveal.activate(jeiRuntime);
         JeiRecipeReveal.reveal(jeiRuntime);
+        JeHide.apply(jeiRuntime);
         JeiIntentScanner.scan(jeiRuntime);
         JustEnoughHiding.LOGGER.info("[JEH] intents recorded for this runtime: {} entries", IntentRegistry.size());
     }
@@ -330,6 +332,7 @@ public final class JeiAdapter implements ViewerAdapter
         this.runtime = null;
         this.targetIndex = null;
         reveal.deactivate();
+        JeHide.reset();
         IntentRegistry.clear();
     }
 

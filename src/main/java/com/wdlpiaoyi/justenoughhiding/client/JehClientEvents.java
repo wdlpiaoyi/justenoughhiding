@@ -4,6 +4,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.wdlpiaoyi.justenoughhiding.JustEnoughHiding;
 import com.wdlpiaoyi.justenoughhiding.client.gui.HidingListScreen;
 import com.wdlpiaoyi.justenoughhiding.client.gui.IntentScreen;
+import com.wdlpiaoyi.justenoughhiding.client.jehide.JeHide;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.commands.CommandSourceStack;
@@ -28,8 +29,15 @@ public final class JehClientEvents
     {
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal("jeh")
             .then(Commands.literal("intents").executes(context -> openScreen(IntentScreen::new)))
-            .then(Commands.literal("list").executes(context -> openScreen(HidingListScreen::new)));
+            .then(Commands.literal("list").executes(context -> openScreen(HidingListScreen::new)))
+            .then(Commands.literal("apply").executes(context -> applyJeHide()));
         event.getDispatcher().register(root);
+    }
+
+    private static int applyJeHide()
+    {
+        JeHide.reapply();
+        return 1;
     }
 
     @SubscribeEvent

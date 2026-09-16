@@ -10,6 +10,7 @@ import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetKeys;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetKind;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetSuggestion;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.ViewerAdapter;
+import com.wdlpiaoyi.justenoughhiding.client.jehide.JeHide;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import com.wdlpiaoyi.justenoughhiding.listehiding.ListEHiding;
 import com.wdlpiaoyi.justenoughhiding.listehiding.ListEHidingEntry;
@@ -287,6 +288,7 @@ public final class HidingListScreen extends Screen
         ListEHiding.get().reload();
         kindDropdown.setOptions(kindOptions());
         apply();
+        JeHide.reapply();
         setStatus("Reloaded");
     }
 
@@ -338,6 +340,7 @@ public final class HidingListScreen extends Screen
         ListEHiding.get().remove(index);
         kindDropdown.setOptions(kindOptions());
         apply();
+        JeHide.reapply();
     }
 
     private void startNoteEdit(ListEHidingEntry entry)
@@ -619,6 +622,7 @@ public final class HidingListScreen extends Screen
         ListEHiding.get().set(index, replacement);
         kindDropdown.setOptions(kindOptions());
         apply();
+        JeHide.reapply();
     }
 
     private static IntentTarget parseTarget(String id, String kindKey)
