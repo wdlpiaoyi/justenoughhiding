@@ -404,7 +404,7 @@ public final class IntentScreen extends Screen
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button)
     {
-        list.mouseReleased();
+        list.mouseReleased(mouseX, mouseY, button);
         return super.mouseReleased(mouseX, mouseY, button);
     }
 

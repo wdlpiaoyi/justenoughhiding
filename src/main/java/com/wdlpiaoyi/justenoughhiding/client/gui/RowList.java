@@ -4,6 +4,7 @@ import com.wdlpiaoyi.justenoughhiding.client.gui.column.Column;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.renderer.Rect2i;
 
 import java.util.List;
 
@@ -13,6 +14,11 @@ public final class RowList<T> implements Renderable
     private static final int ROW_HEIGHT = 18;
     private static final int SCROLLBAR_WIDTH = 6;
     private static final int MIN_FLEX_WIDTH = 20;
+
+    public interface RowRightClickListener<T>
+    {
+        void onRightClick(T row, double mouseX, double mouseY);
+    }
 
     private final Font font;
 
@@ -24,6 +30,8 @@ public final class RowList<T> implements Renderable
     private List<Column<T>> columns = List.of();
     private List<T> rows = List.of();
     private T selected;
+    private T pressedRow;
+    private RowRightClickListener<T> rightClickListener;
     private int scroll;
     private boolean dragging;
     private boolean hoverEnabled = true;
@@ -57,6 +65,11 @@ public final class RowList<T> implements Renderable
         }
     }
 
+    public void setRightClickListener(RowRightClickListener<T> rightClickListener)
+    {
+        this.rightClickListener = rightClickListener;
+    }
+
     public T getSelected()
     {
         return selected;
@@ -65,6 +78,39 @@ public final class RowList<T> implements Renderable
     public void setHoverEnabled(boolean hoverEnabled)
     {
         this.hoverEnabled = hoverEnabled;
+    }
+
+    public int indexOf(T row)
+    {
+        for (int i = 0; i < rows.size(); i++)
+        {
+            if (rows.get(i) == row)
+            {
+                return i;
+            }
+        }
+        return rows.indexOf(row);
+    }
+
+    /** Screen-space bounds of a cell, or null when the row/column is not currently visible. */
+    public Rect2i cellBounds(int rowIndex, int columnIndex)
+    {
+        if (rowIndex < scroll || rowIndex >= scroll + visibleRows())
+        {
+            return null;
+        }
+        if (columnIndex < 0 || columnIndex >= columns.size())
+        {
+            return null;
+        }
+        int[] widths = columnWidths(x + width - SCROLLBAR_WIDTH - x);
+        int left = x + 2;
+        for (int i = 0; i < columnIndex; i++)
+        {
+            left += widths[i];
+        }
+        int rowY = y + (rowIndex - scroll) * ROW_HEIGHT;
+        return new Rect2i(left, rowY, widths[columnIndex], ROW_HEIGHT);
     }
 
     @Override
@@ -109,6 +155,17 @@ public final class RowList<T> implements Renderable
             return;
         }
 
+        int[] widths = columnWidths(rowWidth);
+        int left = x + 2;
+        for (int i = 0; i < columns.size(); i++)
+        {
+            columns.get(i).render(guiGraphics, font, row, left, rowTop, widths[i], ROW_HEIGHT);
+            left += widths[i];
+        }
+    }
+
+    private int[] columnWidths(int rowWidth)
+    {
         int usableWidth = Math.max(MIN_FLEX_WIDTH, rowWidth - 4);
         int fixedWidth = 0;
         int flexCount = 0;
@@ -125,13 +182,13 @@ public final class RowList<T> implements Renderable
         }
         int flexWidth = flexCount > 0 ? Math.max(MIN_FLEX_WIDTH, (usableWidth - fixedWidth) / flexCount) : 0;
 
-        int left = x + 2;
-        for (Column<T> column : columns)
+        int[] widths = new int[columns.size()];
+        for (int i = 0; i < columns.size(); i++)
         {
-            int columnWidth = column.flexible() ? flexWidth : column.width();
-            column.render(guiGraphics, font, row, left, rowTop, columnWidth, ROW_HEIGHT);
-            left += columnWidth;
+            Column<T> column = columns.get(i);
+            widths[i] = column.flexible() ? flexWidth : column.width();
         }
+        return widths;
     }
 
     private void drawScrollbar(GuiGraphics guiGraphics)
@@ -150,7 +207,23 @@ public final class RowList<T> implements Renderable
 
     public boolean mouseClicked(double mouseX, double mouseY, int button)
     {
-        if (button != 0 || mouseX < x || mouseX >= x + width || mouseY < y || mouseY >= y + height)
+        if (mouseX < x || mouseX >= x + width || mouseY < y || mouseY >= y + height)
+        {
+            return false;
+        }
+
+        if (button == 1)
+        {
+            T row = rowAt((int) mouseX, (int) mouseY);
+            if (row != null)
+            {
+                pressedRow = row;
+                selected = row;
+                return true;
+            }
+            return false;
+        }
+        if (button != 0)
         {
             return false;
         }
@@ -176,9 +249,22 @@ public final class RowList<T> implements Renderable
         }
     }
 
-    public void mouseReleased()
+    public boolean mouseReleased(double mouseX, double mouseY, int button)
     {
         dragging = false;
+
+        if (button == 1 && pressedRow != null)
+        {
+            T pressed = pressedRow;
+            pressedRow = null;
+            T released = rowAt((int) mouseX, (int) mouseY);
+            if (released == pressed && rightClickListener != null)
+            {
+                rightClickListener.onRightClick(pressed, mouseX, mouseY);
+            }
+            return true;
+        }
+        return false;
     }
 
     public boolean mouseScrolled(double mouseX, double mouseY, double delta)

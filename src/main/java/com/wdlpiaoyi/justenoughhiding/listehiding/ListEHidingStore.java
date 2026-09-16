@@ -112,6 +112,7 @@ public final class ListEHidingStore
                 ResourceLocation type = dto.recipeType == null ? null : ResourceLocation.tryParse(dto.recipeType);
                 yield type != null ? IntentTarget.category(type) : null;
             }
+            case "unset" -> IntentTarget.unset();
             default -> null;
         };
         if (target == null)

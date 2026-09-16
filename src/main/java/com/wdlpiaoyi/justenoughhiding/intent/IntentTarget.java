@@ -74,6 +74,22 @@ public sealed interface IntentTarget
         }
     }
 
+    /** Placeholder used by freshly created list entries until a real target is set. */
+    record Unset() implements IntentTarget
+    {
+        @Override
+        public String kind()
+        {
+            return "unset";
+        }
+
+        @Override
+        public String describe()
+        {
+            return "(empty)";
+        }
+    }
+
     static IntentTarget of(IngredientKey key)
     {
         return new Ingredient(key);
@@ -87,5 +103,10 @@ public sealed interface IntentTarget
     static IntentTarget category(ResourceLocation recipeType)
     {
         return new RecipeCategory(recipeType);
+    }
+
+    static IntentTarget unset()
+    {
+        return new Unset();
     }
 }
