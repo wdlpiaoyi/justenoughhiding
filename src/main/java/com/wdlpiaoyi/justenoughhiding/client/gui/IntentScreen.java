@@ -6,9 +6,11 @@ import com.wdlpiaoyi.justenoughhiding.intent.Intent;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentRegistry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 
 import java.nio.file.Path;
@@ -23,10 +25,12 @@ public final class IntentScreen extends Screen
     private static final int MARGIN = 8;
     private static final int ROW_HEIGHT = 20;
     private static final int TOP = 32;
+    private static final String SEARCH_HINT = "Search (kind / source / target)";
 
     private final List<Intent> all = new ArrayList<>();
     private final List<Intent> view = new ArrayList<>();
     private final List<Dropdown> dropdowns = new ArrayList<>();
+    private final List<AbstractWidget> controls = new ArrayList<>();
 
     private EditBox search;
     private Button refreshButton;
@@ -51,13 +55,13 @@ public final class IntentScreen extends Screen
     protected void init()
     {
         dropdowns.clear();
+        controls.clear();
         all.clear();
         all.addAll(IntentRegistry.query().all());
 
         search = new EditBox(this.font, MARGIN, TOP, Math.min(220, Math.max(120, this.width / 3)), ROW_HEIGHT, Component.literal("Search"));
-        search.setHint(Component.literal("Search (kind / source / target)"));
         search.setResponder(value -> apply());
-        addRenderableWidget(search);
+        addControl(search);
 
         List<String> sortOptions = JehConfig.sortModes();
         sourceDropdown = new Dropdown(this.font, search.getX() + search.getWidth() + 6, TOP, 150, ROW_HEIGHT,
@@ -71,7 +75,7 @@ public final class IntentScreen extends Screen
         int buttonX = MARGIN;
 
         refreshButton = Button.builder(Component.literal("Refresh"), b -> refresh()).bounds(buttonX, buttonY, 60, ROW_HEIGHT).build();
-        addRenderableWidget(refreshButton);
+        addControl(refreshButton);
         buttonX += 64;
 
         sortDropdown = new Dropdown(this.font, buttonX, buttonY, 170, ROW_HEIGHT, sortOptions, sortOptions.get(0), value -> apply());
@@ -79,23 +83,23 @@ public final class IntentScreen extends Screen
         buttonX += 176;
 
         exportViewButton = Button.builder(Component.literal("Export View"), b -> exportView()).bounds(buttonX, buttonY, 90, ROW_HEIGHT).build();
-        addRenderableWidget(exportViewButton);
+        addControl(exportViewButton);
         buttonX += 94;
 
         exportAllButton = Button.builder(Component.literal("Export All"), b -> exportAll()).bounds(buttonX, buttonY, 84, ROW_HEIGHT).build();
-        addRenderableWidget(exportAllButton);
+        addControl(exportAllButton);
         buttonX += 88;
 
         copyUidButton = Button.builder(Component.literal("Copy UID"), b -> copy(true)).bounds(buttonX, buttonY, 74, ROW_HEIGHT).build();
-        addRenderableWidget(copyUidButton);
+        addControl(copyUidButton);
         buttonX += 78;
 
         copyLineButton = Button.builder(Component.literal("Copy Line"), b -> copy(false)).bounds(buttonX, buttonY, 78, ROW_HEIGHT).build();
-        addRenderableWidget(copyLineButton);
+        addControl(copyLineButton);
         buttonX += 82;
 
         Button closeButton = Button.builder(Component.literal("Close"), b -> onClose()).bounds(buttonX, buttonY, 54, ROW_HEIGHT).build();
-        addRenderableWidget(closeButton);
+        addControl(closeButton);
 
         int listTop = buttonY + ROW_HEIGHT + 6;
         int listHeight = Math.max(20, this.height - MARGIN - listTop);
@@ -104,6 +108,12 @@ public final class IntentScreen extends Screen
         addRenderableOnly(list);
 
         apply();
+    }
+
+    private void addControl(AbstractWidget widget)
+    {
+        controls.add(widget);
+        addRenderableWidget(widget);
     }
 
     private List<String> optionList(Function<Intent, String> extractor)
@@ -219,6 +229,13 @@ public final class IntentScreen extends Screen
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick)
     {
         Dropdown openDropdown = openDropdown();
+        Rect2i popup = openDropdown == null ? null : openDropdown.popupBounds();
+
+        for (AbstractWidget control : controls)
+        {
+            control.visible = popup == null || !intersects(control, popup);
+        }
+
         int renderMouseX = openDropdown == null ? mouseX : -1;
         int renderMouseY = openDropdown == null ? mouseY : -1;
 
@@ -227,16 +244,18 @@ public final class IntentScreen extends Screen
 
         for (Dropdown dropdown : dropdowns)
         {
-            if (dropdown != openDropdown)
+            if (dropdown == openDropdown || (popup != null && intersects(dropdown.bounds(), popup)))
             {
-                dropdown.render(guiGraphics, mouseX, mouseY, partialTick);
+                continue;
             }
+            dropdown.render(guiGraphics, mouseX, mouseY, partialTick);
         }
         if (openDropdown != null)
         {
             openDropdown.render(guiGraphics, mouseX, mouseY, partialTick);
         }
 
+        drawSearchHint(guiGraphics);
         drawHeader(guiGraphics, mouseX, mouseY);
     }
 
@@ -250,6 +269,15 @@ public final class IntentScreen extends Screen
             }
         }
         return null;
+    }
+
+    private void drawSearchHint(GuiGraphics guiGraphics)
+    {
+        if (!search.visible || !search.getValue().isEmpty())
+        {
+            return;
+        }
+        guiGraphics.drawString(this.font, SEARCH_HINT, search.getX() + 4, search.getY() + (search.getHeight() - 8) / 2, 0xFF808080, false);
     }
 
     private void drawHeader(GuiGraphics guiGraphics, int mouseX, int mouseY)
@@ -280,6 +308,11 @@ public final class IntentScreen extends Screen
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button)
     {
+        if (!isOver(search, mouseX, mouseY))
+        {
+            setFocused(null);
+        }
+
         for (Dropdown dropdown : dropdowns)
         {
             if (dropdown.isOpen())
@@ -341,5 +374,23 @@ public final class IntentScreen extends Screen
     {
         list.mouseReleased();
         return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    private static boolean intersects(AbstractWidget widget, Rect2i rect)
+    {
+        return widget.getX() < rect.getX() + rect.getWidth() && widget.getX() + widget.getWidth() > rect.getX()
+            && widget.getY() < rect.getY() + rect.getHeight() && widget.getY() + widget.getHeight() > rect.getY();
+    }
+
+    private static boolean intersects(Rect2i a, Rect2i b)
+    {
+        return a.getX() < b.getX() + b.getWidth() && a.getX() + a.getWidth() > b.getX()
+            && a.getY() < b.getY() + b.getHeight() && a.getY() + a.getHeight() > b.getY();
+    }
+
+    private static boolean isOver(AbstractWidget widget, double mouseX, double mouseY)
+    {
+        return mouseX >= widget.getX() && mouseX < widget.getX() + widget.getWidth()
+            && mouseY >= widget.getY() && mouseY < widget.getY() + widget.getHeight();
     }
 }

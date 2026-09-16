@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.renderer.Rect2i;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -46,6 +47,20 @@ public final class Dropdown implements Renderable
     public int getX()
     {
         return x;
+    }
+
+    public Rect2i bounds()
+    {
+        return new Rect2i(x, y, width, height);
+    }
+
+    public Rect2i popupBounds()
+    {
+        if (!open)
+        {
+            return null;
+        }
+        return new Rect2i(x, y + height, width, visibleOptions() * OPTION_HEIGHT);
     }
 
     public boolean isOpen()
