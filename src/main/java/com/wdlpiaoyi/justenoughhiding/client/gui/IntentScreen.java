@@ -12,6 +12,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -252,7 +253,8 @@ public final class IntentScreen extends Screen
         }
 
         drawSearchHint(guiGraphics);
-        drawHeader(guiGraphics, mouseX, mouseY);
+        drawHeader(guiGraphics);
+        drawTooltips(guiGraphics, mouseX, mouseY);
     }
 
     private Dropdown openDropdown()
@@ -276,7 +278,7 @@ public final class IntentScreen extends Screen
         guiGraphics.drawString(this.font, SEARCH_HINT, search.getX() + 4, search.getY() + (search.getHeight() - 8) / 2, 0xFF808080, false);
     }
 
-    private void drawHeader(GuiGraphics guiGraphics, int mouseX, int mouseY)
+    private void drawHeader(GuiGraphics guiGraphics)
     {
         guiGraphics.drawString(this.font, this.title, MARGIN, 8, 0xFFFFFFFF, true);
 
@@ -288,7 +290,10 @@ public final class IntentScreen extends Screen
         {
             guiGraphics.drawString(this.font, this.status, this.width - MARGIN - this.font.width(this.status), 8, 0xFFFFE080, false);
         }
+    }
 
+    private void drawTooltips(GuiGraphics guiGraphics, int mouseX, int mouseY)
+    {
         if (openDropdown() != null)
         {
             return;
@@ -304,15 +309,24 @@ public final class IntentScreen extends Screen
         }
 
         Intent hovered = list.intentAt(mouseX, mouseY);
-        if (hovered != null)
+        if (hovered == null)
         {
-            this.setTooltipForNextRenderPass(List.of(
-                Component.literal(hovered.kind().name()),
-                Component.literal("source: " + hovered.source().id()),
-                Component.literal("target: " + IntentFormat.targetText(hovered.target())),
-                Component.literal("count: " + hovered.count())
-            ).stream().map(Component::getVisualOrderText).toList());
+            return;
         }
+
+        ItemStack icon = ItemIcons.resolve(hovered.target());
+        if (!icon.isEmpty())
+        {
+            guiGraphics.renderTooltip(this.font, icon, mouseX, mouseY);
+            return;
+        }
+
+        this.setTooltipForNextRenderPass(List.of(
+            Component.literal(hovered.kind().name()),
+            Component.literal("source: " + hovered.source().id()),
+            Component.literal("target: " + IntentFormat.targetText(hovered.target())),
+            Component.literal("count: " + hovered.count())
+        ).stream().map(Component::getVisualOrderText).toList());
     }
 
     @Override

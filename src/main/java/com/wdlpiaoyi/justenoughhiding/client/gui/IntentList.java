@@ -4,13 +4,15 @@ import com.wdlpiaoyi.justenoughhiding.intent.Intent;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 
 public final class IntentList implements Renderable
 {
-    private static final int ROW_HEIGHT = 12;
+    private static final int ROW_HEIGHT = 18;
     private static final int SCROLLBAR_WIDTH = 6;
+    private static final int ICON_WIDTH = 18;
     private static final int KIND_WIDTH = 96;
     private static final int SOURCE_WIDTH = 110;
     private static final int COUNT_WIDTH = 34;
@@ -90,16 +92,25 @@ public final class IntentList implements Renderable
             {
                 guiGraphics.fill(x, rowY, rowRight, rowBottom, 0x40FFFFFF);
             }
-            drawRow(guiGraphics, intent, x + 3, rowY + 2, rowRight - x - 6);
+            drawRow(guiGraphics, intent, x, rowY, rowRight - x);
         }
         guiGraphics.disableScissor();
 
         drawScrollbar(guiGraphics);
     }
 
-    private void drawRow(GuiGraphics guiGraphics, Intent intent, int left, int top, int rowWidth)
+    private void drawRow(GuiGraphics guiGraphics, Intent intent, int rowLeft, int rowTop, int rowWidth)
     {
-        int targetWidth = Math.max(20, rowWidth - KIND_WIDTH - SOURCE_WIDTH - COUNT_WIDTH);
+        ItemStack icon = ItemIcons.resolve(intent.target());
+        if (!icon.isEmpty())
+        {
+            guiGraphics.renderItem(icon, rowLeft + 1, rowTop + 1);
+            guiGraphics.renderItemDecorations(font, icon, rowLeft + 1, rowTop + 1);
+        }
+
+        int left = rowLeft + ICON_WIDTH;
+        int top = rowTop + (ROW_HEIGHT - 8) / 2;
+        int targetWidth = Math.max(20, rowWidth - ICON_WIDTH - KIND_WIDTH - SOURCE_WIDTH - COUNT_WIDTH);
         int kindColor = intent.kind().isHide() ? 0xFFFF7070 : 0xFF70FF70;
 
         guiGraphics.drawString(font, fit(intent.kind().name(), KIND_WIDTH), left, top, kindColor, false);

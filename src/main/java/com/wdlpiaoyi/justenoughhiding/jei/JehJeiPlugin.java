@@ -13,7 +13,14 @@ public final class JehJeiPlugin implements IModPlugin
 {
     private static final ResourceLocation PLUGIN_UID = ResourceLocation.fromNamespaceAndPath(JustEnoughHiding.MODID, "main");
 
+    private static volatile IJeiRuntime runtime;
+
     private final JeiReveal reveal = new JeiReveal();
+
+    public static IJeiRuntime getRuntime()
+    {
+        return runtime;
+    }
 
     @Override
     public ResourceLocation getPluginUid()
@@ -24,6 +31,7 @@ public final class JehJeiPlugin implements IModPlugin
     @Override
     public void onRuntimeAvailable(IJeiRuntime jeiRuntime)
     {
+        runtime = jeiRuntime;
         reveal.activate(jeiRuntime);
         JeiIntentScanner.scan(jeiRuntime);
         JustEnoughHiding.LOGGER.info("[JEH] intents recorded for this runtime: {} entries", IntentRegistry.size());
@@ -32,6 +40,7 @@ public final class JehJeiPlugin implements IModPlugin
     @Override
     public void onRuntimeUnavailable()
     {
+        runtime = null;
         reveal.deactivate();
         IntentRegistry.clear();
     }
