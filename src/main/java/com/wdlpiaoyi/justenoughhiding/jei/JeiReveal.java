@@ -1,12 +1,18 @@
 package com.wdlpiaoyi.justenoughhiding.jei;
 
 import com.wdlpiaoyi.justenoughhiding.JustEnoughHiding;
+import com.wdlpiaoyi.justenoughhiding.intent.IngredientKey;
+import com.wdlpiaoyi.justenoughhiding.intent.IntentKind;
+import com.wdlpiaoyi.justenoughhiding.intent.IntentRegistry;
+import com.wdlpiaoyi.justenoughhiding.intent.IntentSource;
+import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.ITypedIngredient;
-import mezz.jei.api.registration.IExtraIngredientRegistration;
+import mezz.jei.api.ingredients.subtypes.UidContext;
 import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.api.runtime.IJeiRuntime;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.MinecraftForge;
@@ -28,19 +34,12 @@ public final class JeiReveal
     private IJeiRuntime runtime;
     private boolean ticking;
 
-    public void offerExtraIngredients(IExtraIngredientRegistration registration)
-    {
-        List<ItemStack> items = everyRegisteredItem();
-        registration.addExtraItemStacks(items);
-        JustEnoughHiding.LOGGER.info("[JEH] reveal: offered {} item stacks to JEI", items.size());
-    }
-
     public void activate(IJeiRuntime jeiRuntime)
     {
         this.runtime = jeiRuntime;
         jeiRuntime.getIngredientManager().registerIngredientListener(new RemovalCollector());
         beginTicking();
-        fillInMissing(jeiRuntime);
+        revealMissing(jeiRuntime);
     }
 
     public void deactivate()
@@ -105,7 +104,7 @@ public final class JeiReveal
         {
             for (ITypedIngredient<V> ingredient : ingredients)
             {
-                ItemStack stack = ingredient.getCastIngredient(VanillaTypes.ITEM_STACK);
+                ItemStack stack = ingredient.getIngredient(VanillaTypes.ITEM_STACK).orElse(null);
                 if (stack != null)
                 {
                     JeiReveal.this.removedStacks.add(stack);
@@ -114,43 +113,62 @@ public final class JeiReveal
         }
     }
 
-    private static void fillInMissing(IJeiRuntime jeiRuntime)
+    private static void revealMissing(IJeiRuntime jeiRuntime)
     {
-        Set<Item> alreadyPresent = jeiRuntime.getIngredientManager().getAllItemStacks().stream()
+        IIngredientManager manager = jeiRuntime.getIngredientManager();
+        IIngredientHelper<ItemStack> helper = manager.getIngredientHelper(VanillaTypes.ITEM_STACK);
+        String typeUid = VanillaTypes.ITEM_STACK.getUid();
+
+        Set<Item> alreadyPresent = manager.getAllItemStacks().stream()
             .map(ItemStack::getItem)
             .collect(Collectors.toSet());
 
         List<ItemStack> absent = new ArrayList<>();
         for (Item item : ForgeRegistries.ITEMS)
         {
-            if (!alreadyPresent.contains(item))
+            if (alreadyPresent.contains(item))
             {
-                ItemStack stack = new ItemStack(item);
-                if (!stack.isEmpty())
-                {
-                    absent.add(stack);
-                }
+                continue;
+            }
+
+            ItemStack stack = new ItemStack(item);
+            if (stack.isEmpty())
+            {
+                continue;
+            }
+            absent.add(stack);
+
+            boolean onServer;
+            try
+            {
+                onServer = helper.isIngredientOnServer(stack);
+            }
+            catch (Throwable t)
+            {
+                onServer = true;
+            }
+            if (!onServer)
+            {
+                // The scanner records these as SERVER_MISSING.
+                continue;
+            }
+
+            try
+            {
+                String uid = helper.getUniqueId(stack, UidContext.Ingredient);
+                ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(item);
+                IntentSource source = IntentSource.mod(itemId == null ? "unknown" : itemId.getNamespace());
+                IntentRegistry.record(IntentTarget.of(IngredientKey.of(typeUid, uid)), IntentKind.ABSENT_FROM_JEI, source);
+            }
+            catch (Throwable ignored)
+            {
             }
         }
 
         if (!absent.isEmpty())
         {
-            jeiRuntime.getIngredientManager().addIngredientsAtRuntime(VanillaTypes.ITEM_STACK, absent);
+            manager.addIngredientsAtRuntime(VanillaTypes.ITEM_STACK, absent);
             JustEnoughHiding.LOGGER.info("[JEH] reveal: added {} item stacks that JEI was missing", absent.size());
         }
-    }
-
-    private static List<ItemStack> everyRegisteredItem()
-    {
-        List<ItemStack> stacks = new ArrayList<>();
-        for (Item item : ForgeRegistries.ITEMS)
-        {
-            ItemStack stack = new ItemStack(item);
-            if (!stack.isEmpty())
-            {
-                stacks.add(stack);
-            }
-        }
-        return stacks;
     }
 }

@@ -1,9 +1,10 @@
 package com.wdlpiaoyi.justenoughhiding.jei;
 
 import com.wdlpiaoyi.justenoughhiding.JustEnoughHiding;
+import com.wdlpiaoyi.justenoughhiding.intent.IntentRegistry;
+import com.wdlpiaoyi.justenoughhiding.jei.intent.JeiIntentScanner;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
-import mezz.jei.api.registration.IExtraIngredientRegistration;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.resources.ResourceLocation;
 
@@ -21,20 +22,17 @@ public final class JehJeiPlugin implements IModPlugin
     }
 
     @Override
-    public void registerExtraIngredients(IExtraIngredientRegistration registration)
-    {
-        reveal.offerExtraIngredients(registration);
-    }
-
-    @Override
     public void onRuntimeAvailable(IJeiRuntime jeiRuntime)
     {
         reveal.activate(jeiRuntime);
+        JeiIntentScanner.scan(jeiRuntime);
+        JustEnoughHiding.LOGGER.info("[JEH] intents recorded for this runtime: {} entries", IntentRegistry.size());
     }
 
     @Override
     public void onRuntimeUnavailable()
     {
         reveal.deactivate();
+        IntentRegistry.clear();
     }
 }

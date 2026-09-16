@@ -6,7 +6,12 @@
   "plugin": "com.wdlpiaoyi.justenoughhiding.mixin.JehMixinPlugin",
   "refmap": "justenoughhiding.refmap.json",
   "client": [
-    "jei.RevealMixin"
+    "jei.RevealMixin",
+    "jei.intent.PluginCallerContextMixin",
+    "jei.intent.IngredientManagerIntentMixin",
+    "jei.intent.IngredientVisibilityIntentMixin",
+    "jei.intent.EditModeConfigIntentMixin",
+    "jei.intent.RecipeManagerInternalIntentMixin"
   ],
   "injectors": {
     "defaultRequire": 1
