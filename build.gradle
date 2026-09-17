@@ -140,6 +140,12 @@ repositories {
         url = 'https://maven.architectury.dev'
     }
 
+    // EMI is published to the Terraformers maven
+    maven {
+        name = 'Terraformers'
+        url = 'https://maven.terraformersmc.com/releases'
+    }
+
     // If you have mod jar dependencies in ./libs, you can declare them as a repository like so.
     // See https://docs.gradle.org/current/userguide/declaring_repositories.html#sub:flat_dir_resolver
     // flatDir {
@@ -170,6 +176,11 @@ dependencies {
     // KubeJS integration is optional. Pass -PnoKubeJS to build without it.
     if (!project.hasProperty('noKubeJS')) {
         compileOnly fg.deobf("dev.latvian.mods:kubejs-forge:${kubejs_version}")
+    }
+
+    // EMI integration is optional. Pass -PnoEmi to build without it.
+    if (!project.hasProperty('noEmi')) {
+        compileOnly fg.deobf("dev.emi:emi-forge:${emi_version}")
     }
 
     // Example mod dependency using a mod jar from ./libs with a flat dir repository

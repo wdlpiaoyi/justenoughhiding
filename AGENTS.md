@@ -6,7 +6,7 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
 ## Commands (Windows / PowerShell)
 - Build: `.\gradlew.bat build` → `build\libs\justenoughhiding-<version>.jar`
 - Smoke test (always run after a build): `.\gradlew.bat runData`
-- Skip optional deps for local runs: `-PnoJei`, `-PnoKubeJS`
+- Skip optional deps for local runs: `-PnoJei`, `-PnoKubeJS`, `-PnoEmi`
 - No unit tests and no `runClient` flow; testing is manual in the user's pack (see Testing).
 - Needs JDK 17. This machine points Gradle at it through the global
   `~/.gradle/gradle.properties` (`org.gradle.java.home`).
@@ -44,6 +44,11 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
 - KubeJS: `compileOnly`; discovered via `src/main/resources/kubejs.plugins.txt`
   (`<class> client`). Exposes the global `JEH` binding to `kubejs/client_scripts`
   (`integration/kubejs/`). Script changes are in-memory only until `JEH.save()`.
+- EMI: `compileOnly`; discovered via `@dev.emi.emi.api.EmiEntrypoint`
+  (`integration/emi/JehEmiPlugin`). `Adapters.active()` picks the highest `priority()`
+  adapter, and EMI (100) outranks JEI (10) because EMI overrides the overlay. Hiding in EMI is
+  registration-time only (`EmiRegistry.removeEmiStacks/removeRecipes`), unlike JEI; `EmiHide`
+  is a phase-2 placeholder.
 
 ## JEI gotchas
 - JEI caches its ingredient list; `hideIngredients`/`unhideIngredients` alone do not refresh it.

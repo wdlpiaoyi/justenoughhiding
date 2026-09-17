@@ -28,6 +28,10 @@ public final class JehMixinPlugin implements IMixinConfigPlugin
         {
             return isModLoaded("jei");
         }
+        if (mixinClassName.contains(".mixin.emi."))
+        {
+            return isModLoaded("emi");
+        }
         return true;
     }
 

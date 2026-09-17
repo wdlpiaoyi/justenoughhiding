@@ -17,6 +17,15 @@ public interface ViewerAdapter
 
     boolean available();
 
+    /**
+     * Higher wins when more than one viewer is available. EMI outranks JEI because EMI takes
+     * over the recipe-viewer overlay when it is installed.
+     */
+    default int priority()
+    {
+        return 0;
+    }
+
     // ---- presentation (used by the intent viewer GUI) ----
 
     /**

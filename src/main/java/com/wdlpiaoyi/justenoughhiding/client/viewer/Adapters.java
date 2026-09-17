@@ -18,19 +18,32 @@ public final class Adapters
 
     public static void register(ViewerAdapter adapter)
     {
+        if (adapter == null)
+        {
+            return;
+        }
+        for (int i = 0; i < REGISTERED.size(); i++)
+        {
+            if (REGISTERED.get(i).id().equals(adapter.id()))
+            {
+                REGISTERED.set(i, adapter);
+                return;
+            }
+        }
         REGISTERED.add(adapter);
     }
 
     public static ViewerAdapter active()
     {
+        ViewerAdapter best = null;
         for (ViewerAdapter adapter : REGISTERED)
         {
-            if (adapter.available())
+            if (adapter.available() && (best == null || adapter.priority() > best.priority()))
             {
-                return adapter;
+                best = adapter;
             }
         }
-        return FALLBACK;
+        return best == null ? FALLBACK : best;
     }
 
     private static final class FallbackAdapter implements ViewerAdapter

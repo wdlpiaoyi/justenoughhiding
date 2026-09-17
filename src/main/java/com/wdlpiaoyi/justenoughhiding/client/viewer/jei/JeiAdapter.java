@@ -66,6 +66,12 @@ public final class JeiAdapter implements ViewerAdapter
     }
 
     @Override
+    public int priority()
+    {
+        return 10;
+    }
+
+    @Override
     public List<TargetKind> targetKinds()
     {
         List<TargetKind> kinds = new ArrayList<>();
