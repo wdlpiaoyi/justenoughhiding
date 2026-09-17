@@ -95,16 +95,6 @@ public final class IntentRegistry implements IntentQuery
         INSTANCE.entries.keySet().removeIf(key -> sourceId.equals(key.sourceId()));
     }
 
-    /** Drops every recorded intent whose source has the given type (e.g. resource packs). */
-    public static void dropByType(IntentSource.Type type)
-    {
-        if (type == null)
-        {
-            return;
-        }
-        INSTANCE.entries.entrySet().removeIf(entry -> entry.getValue().source.type() == type);
-    }
-
     /**
      * Keeps only intents of the given source type whose source id is in {@code activeSourceIds},
      * dropping the rest (e.g. resource packs that are no longer selected).
@@ -118,6 +108,31 @@ public final class IntentRegistry implements IntentQuery
         Set<String> active = activeSourceIds == null ? Set.of() : new HashSet<>(activeSourceIds);
         INSTANCE.entries.entrySet().removeIf(entry ->
             entry.getValue().source.type() == type && !active.contains(entry.getValue().source.id()));
+    }
+
+    /**
+     * Drops resource-pack intents of the given kinds that are no longer produced by their pack,
+     * which removes stale entries when a pack's content changes (its id stays the same).
+     * {@code producedBySource} maps a pack id to the target keys ("kind|describe") it now hides.
+     */
+    public static void retainResourcePackTargets(Set<IntentKind> kinds, Map<String, Set<String>> producedBySource)
+    {
+        if (kinds == null || kinds.isEmpty())
+        {
+            return;
+        }
+        INSTANCE.entries.entrySet().removeIf(entry ->
+        {
+            Entry value = entry.getValue();
+            if (value.source.type() != IntentSource.Type.RESOURCE_PACK || !kinds.contains(value.kind))
+            {
+                return false;
+            }
+            Set<String> produced = producedBySource == null ? null : producedBySource.get(value.source.id());
+            IntentTarget target = entry.getKey().target();
+            String key = target.kind() + "|" + target.describe();
+            return produced == null || !produced.contains(key);
+        });
     }
 
     public static void remove(IntentTarget target, String sourceId)

@@ -63,9 +63,10 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
   `EmiHiddenIntentMixin` through `integration/emi/EmiIntentRecorder`. Its data-pack/registry scan
   is cached per `(ResourceManager, Level)`; `client/JehClientReloadEvents` clears it on every
   resource reload via `client/jehide/JehReloadHooks` (the manager instance is `final`, so identity
-  alone is not enough). Resource-pack-sourced intents (`IntentSource.Type.RESOURCE_PACK`) are
-  dropped and re-recorded whenever that scan cache rebuilds, so removed packs leave no stale
-  entries. `HidingListScreen` only re-applies on close when the list actually changed. Because JEH ships an EMI plugin, EMI's
+  alone is not enough). Removed packs' intents are dropped at reload time
+  (`IntentRegistry.retainSources`), and content changes are pruned per scan by
+  `IntentRegistry.retainResourcePackTargets` (per kind, so stack/recipe scans don't clobber each
+  other). `HidingListScreen` only re-applies on close when the list actually changed. Because JEH ships an EMI plugin, EMI's
   `jei.PluginCallerMixin` treats it as an EMI-handled mod and skips its JEI plugin callbacks;
   `mixin/jei/intent/PluginCallerContextMixin` re-invokes JEH's own plugin for the runtime phases so
   the JEI-side reveal/scanner still run under EMI.

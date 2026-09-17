@@ -36,9 +36,12 @@ import net.minecraftforge.registries.ForgeRegistries;
 
 import java.io.BufferedReader;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -230,10 +233,13 @@ public final class EmiIntentRecorder
             List<HiddenEntry> hides = cachedItemHides;
             if (hides != null)
             {
+                Map<String, Set<String>> produced = new HashMap<>();
                 for (HiddenEntry entry : hides)
                 {
                     recordWith(entry.stack(), entry.kind(), entry.source());
+                    addProduced(produced, entry.source(), entry.stack());
                 }
+                IntentRegistry.retainResourcePackTargets(Set.of(IntentKind.HIDDEN), produced);
             }
             recordPluginDisabled();
         }
@@ -265,6 +271,7 @@ public final class EmiIntentRecorder
             {
                 return;
             }
+            Map<String, Set<String>> produced = new HashMap<>();
             for (EmiRecipe recipe : allRecipes)
             {
                 if (recipe == null)
@@ -287,11 +294,23 @@ public final class EmiIntentRecorder
                     {
                         continue;
                     }
-                    if (matched && !IntentRegistry.contains(target, IntentKind.RECIPE_HIDDEN, entry.source().id()))
+                    if (!matched)
+                    {
+                        continue;
+                    }
+                    if (entry.source().type() == IntentSource.Type.RESOURCE_PACK)
+                    {
+                        produced.computeIfAbsent(entry.source().id(), ignored -> new HashSet<>()).add(targetKey(target));
+                    }
+                    if (!IntentRegistry.contains(target, IntentKind.RECIPE_HIDDEN, entry.source().id()))
                     {
                         IntentRegistry.record(target, IntentKind.RECIPE_HIDDEN, entry.source());
                     }
                 }
+            }
+            if (cachedPackRecipeFilters != null)
+            {
+                IntentRegistry.retainResourcePackTargets(Set.of(IntentKind.RECIPE_HIDDEN), produced);
             }
         }
         catch (Throwable ignored)
@@ -812,6 +831,25 @@ public final class EmiIntentRecorder
             return;
         }
         IntentRegistry.record(target, kind, source);
+    }
+
+    /** Adds a resource pack's currently produced target key, used to prune stale pack intents. */
+    private static void addProduced(Map<String, Set<String>> produced, IntentSource source, EmiStack stack)
+    {
+        if (source == null || source.type() != IntentSource.Type.RESOURCE_PACK)
+        {
+            return;
+        }
+        IntentTarget target = targetOf(stack);
+        if (target != null)
+        {
+            produced.computeIfAbsent(source.id(), ignored -> new HashSet<>()).add(targetKey(target));
+        }
+    }
+
+    private static String targetKey(IntentTarget target)
+    {
+        return target.kind() + "|" + target.describe();
     }
 
     private static void recordAbsent(EmiStack stack, IntentKind kind, String namespace)
