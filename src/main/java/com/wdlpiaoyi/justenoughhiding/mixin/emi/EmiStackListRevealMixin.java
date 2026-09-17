@@ -1,5 +1,6 @@
 package com.wdlpiaoyi.justenoughhiding.mixin.emi;
 
+import com.wdlpiaoyi.justenoughhiding.client.viewer.emi.EmiRevealSupport;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;

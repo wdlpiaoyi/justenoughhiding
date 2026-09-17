@@ -1,4 +1,4 @@
-package com.wdlpiaoyi.justenoughhiding.mixin.emi;
+package com.wdlpiaoyi.justenoughhiding.client.viewer.emi;
 
 import com.wdlpiaoyi.justenoughhiding.client.jehide.EmiHide;
 import dev.emi.emi.api.recipe.EmiRecipe;
@@ -12,6 +12,9 @@ import java.util.List;
 /**
  * Bridges EMI types to {@link EmiHide} (which is intentionally free of EMI types). Only loaded
  * when EMI is present.
+ * <p>
+ * Lives outside the mixin package on purpose: the package declared in the mixin config is owned
+ * by Mixin, so helper classes there cannot be referenced directly.
  */
 public final class EmiRevealSupport
 {

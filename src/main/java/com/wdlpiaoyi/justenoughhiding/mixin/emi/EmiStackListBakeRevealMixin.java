@@ -1,6 +1,7 @@
 package com.wdlpiaoyi.justenoughhiding.mixin.emi;
 
 import com.wdlpiaoyi.justenoughhiding.JustEnoughHiding;
+import com.wdlpiaoyi.justenoughhiding.client.viewer.emi.EmiRevealSupport;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
 import dev.emi.emi.api.stack.EmiStack;
 import net.minecraft.world.item.Item;

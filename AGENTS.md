@@ -71,6 +71,10 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
 - `mods.toml` `logoFile` must be a **square** PNG: HMCL rejects non-square mod icons
   (`|width-height| < 1`). Keep `src/main/resources/justenoughhiding.png` square.
 - `reference/` is gitignored third-party mod source for reading only; never build or commit it.
+- The mixin config `package` (`...justenhoughiding.mixin`) is **owned by Mixin**: classes under it
+  may only be mixins listed in `justenoughhiding.mixins.json` (plus the config `plugin`). Put
+  helper classes elsewhere (e.g. `client/viewer/...`), or the game crashes with
+  `IllegalClassLoadError: ... is in a defined mixin package ... cannot be referenced directly`.
 
 ## Testing
 - Build, then `.\gradlew.bat runData` as a smoke test.
