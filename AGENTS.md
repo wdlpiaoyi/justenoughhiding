@@ -61,8 +61,7 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
   `EmiHidden.setVisibility`, and `assets/emi/index/stacks` + `recipe/filters` data-pack hides
   attributed to the providing pack) are recorded by `mixin/emi/EmiRegistryIntentMixin` /
   `EmiHiddenIntentMixin` through `integration/emi/EmiIntentRecorder`. Its data-pack/registry scan
-  is cached per `(ResourceManager, Level)` and its recipe-predicate matches per
-  `(recipe list, captured version)`; `client/JehClientReloadEvents` clears the scan cache on every
+  is cached per `(ResourceManager, Level)`; `client/JehClientReloadEvents` clears it on every
   resource reload via `client/jehide/JehReloadHooks` (the manager instance is `final`, so identity
   alone is not enough). Removed packs' intents are dropped at reload time
   (`IntentRegistry.retainSources`), and content changes are pruned per scan by

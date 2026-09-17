@@ -43,7 +43,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
@@ -74,23 +73,13 @@ public final class EmiIntentRecorder
     {
     }
 
-    private record RecipeMatch(IntentTarget target, IntentSource source)
-    {
-    }
-
     /** {@code removeRecipes} predicates captured at register time, evaluated at the next bake. */
     private static final List<RecipePredicate> CAPTURED_RECIPES = new CopyOnWriteArrayList<>();
-    private static final AtomicInteger CAPTURED_VERSION = new AtomicInteger();
 
     private static volatile ResourceManager cachedResourceManager;
     private static volatile Level cachedLevel;
     private static volatile List<HiddenEntry> cachedItemHides;
     private static volatile List<RecipePredicate> cachedPackRecipeFilters;
-
-    private static volatile List<EmiRecipe> cachedRecipeMatchesRecipes;
-    private static volatile int cachedRecipeMatchesCaptured = -1;
-    private static volatile int cachedRecipeMatchesSize = -1;
-    private static volatile List<RecipeMatch> cachedRecipeMatches;
 
     static
     {
@@ -113,10 +102,6 @@ public final class EmiIntentRecorder
         cachedLevel = null;
         cachedItemHides = null;
         cachedPackRecipeFilters = null;
-        cachedRecipeMatches = null;
-        cachedRecipeMatchesRecipes = null;
-        cachedRecipeMatchesCaptured = -1;
-        cachedRecipeMatchesSize = -1;
     }
 
     /** Evaluates a {@code removeEmiStacks} predicate against the current raw stack list. */
@@ -222,14 +207,12 @@ public final class EmiIntentRecorder
             return;
         }
         CAPTURED_RECIPES.add(new RecipePredicate(predicate, source));
-        CAPTURED_VERSION.incrementAndGet();
     }
 
     /** Cleared at the start of every EMI reload, before plugins re-register. */
     public static void clearCapturedRecipes()
     {
         CAPTURED_RECIPES.clear();
-        CAPTURED_VERSION.incrementAndGet();
     }
 
     /**
@@ -279,30 +262,47 @@ public final class EmiIntentRecorder
         try
         {
             ensureCache();
-            if (cachedPackRecipeFilters == null && CAPTURED_RECIPES.isEmpty())
+            List<RecipePredicate> predicates = new ArrayList<>(CAPTURED_RECIPES);
+            if (cachedPackRecipeFilters != null)
+            {
+                predicates.addAll(cachedPackRecipeFilters);
+            }
+            if (predicates.isEmpty())
             {
                 return;
             }
-
-            int capturedVersion = CAPTURED_VERSION.get();
-            List<RecipeMatch> matches = cachedRecipeMatches;
-            if (matches == null || allRecipes != cachedRecipeMatchesRecipes
-                || capturedVersion != cachedRecipeMatchesCaptured || allRecipes.size() != cachedRecipeMatchesSize)
-            {
-                matches = computeRecipeMatches(allRecipes);
-                cachedRecipeMatches = matches;
-                cachedRecipeMatchesRecipes = allRecipes;
-                cachedRecipeMatchesCaptured = capturedVersion;
-                cachedRecipeMatchesSize = allRecipes.size();
-            }
-
             Map<String, Set<String>> produced = new HashMap<>();
-            for (RecipeMatch match : matches)
+            for (EmiRecipe recipe : allRecipes)
             {
-                addProduced(produced, match.source(), match.target());
-                if (!IntentRegistry.contains(match.target(), IntentKind.RECIPE_HIDDEN, match.source().id()))
+                if (recipe == null)
                 {
-                    IntentRegistry.record(match.target(), IntentKind.RECIPE_HIDDEN, match.source());
+                    continue;
+                }
+                IntentTarget target = recipeTarget(recipe);
+                if (target == null)
+                {
+                    continue;
+                }
+                for (RecipePredicate entry : predicates)
+                {
+                    boolean matched;
+                    try
+                    {
+                        matched = entry.predicate().test(recipe);
+                    }
+                    catch (Throwable t)
+                    {
+                        continue;
+                    }
+                    if (!matched)
+                    {
+                        continue;
+                    }
+                    addProduced(produced, entry.source(), target);
+                    if (!IntentRegistry.contains(target, IntentKind.RECIPE_HIDDEN, entry.source().id()))
+                    {
+                        IntentRegistry.record(target, IntentKind.RECIPE_HIDDEN, entry.source());
+                    }
                 }
             }
             if (cachedPackRecipeFilters != null)
@@ -313,49 +313,6 @@ public final class EmiIntentRecorder
         catch (Throwable ignored)
         {
         }
-    }
-
-    private static List<RecipeMatch> computeRecipeMatches(List<EmiRecipe> allRecipes)
-    {
-        List<RecipePredicate> predicates = new ArrayList<>(CAPTURED_RECIPES);
-        if (cachedPackRecipeFilters != null)
-        {
-            predicates.addAll(cachedPackRecipeFilters);
-        }
-        List<RecipeMatch> matches = new ArrayList<>();
-        if (predicates.isEmpty())
-        {
-            return matches;
-        }
-        for (EmiRecipe recipe : allRecipes)
-        {
-            if (recipe == null)
-            {
-                continue;
-            }
-            IntentTarget target = recipeTarget(recipe);
-            if (target == null)
-            {
-                continue;
-            }
-            for (RecipePredicate entry : predicates)
-            {
-                boolean matched;
-                try
-                {
-                    matched = entry.predicate().test(recipe);
-                }
-                catch (Throwable t)
-                {
-                    continue;
-                }
-                if (matched)
-                {
-                    matches.add(new RecipeMatch(target, entry.source()));
-                }
-            }
-        }
-        return matches;
     }
 
     private static synchronized void ensureCache()
@@ -383,10 +340,6 @@ public final class EmiIntentRecorder
         cachedItemHides = hides;
         cachedResourceManager = manager;
         cachedLevel = level;
-        cachedRecipeMatches = null;
-        cachedRecipeMatchesRecipes = null;
-        cachedRecipeMatchesCaptured = -1;
-        cachedRecipeMatchesSize = -1;
     }
 
     /** Recheck plugin-disabled stacks/filters each bake; they are rebuilt on every EMI reload. */
