@@ -33,8 +33,7 @@
 
 > 首次生成的 `listehiding.json` 自带几条 `note="default"` 的默认项，同时充当格式示例：
 > - 隐藏纹饰锻造配方（`pattern` 作用域 `recipe`，`*_armor_trim_smithing_template`），**启用**；
-> - 隐藏 AE2 伪装板 `ae2:facade`，**启用**；
-> - 其他模组伪装板（Create `create:copycat_panel`、Refined Storage `refinedstorage:cover`），默认**禁用**，需要时改 `enabled` 为 `true`。
+> - 伪装板（AE2 `ae2:facade`、Create `create:copycat_panel`、Refined Storage `refinedstorage:cover`），默认**禁用**，需要时把 `enabled` 改为 `true`。
 >
 > 整合包作者可把仓库里的 `defaultconfigs/jeh/client.toml` 放到实例的 `defaultconfigs/jeh/`，Forge 会在新实例首次运行时套用。
 

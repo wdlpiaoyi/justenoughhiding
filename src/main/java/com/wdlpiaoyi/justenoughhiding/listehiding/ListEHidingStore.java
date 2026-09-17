@@ -29,14 +29,14 @@ public final class ListEHidingStore
 
     /**
      * Default list written on first run (also serves as the format example). Entries carry the note
-     * {@code default}: armor-trim smithing recipes and AE2 facades are hidden; other mods' disguise
-     * plates (Create copycat, Refined Storage cover) are listed but disabled so users can opt in.
+     * {@code default}: armor-trim smithing recipes are hidden; disguise plates (AE2 facade, Create
+     * copycat, Refined Storage cover) are listed but disabled so users can opt in.
      */
     private static final String DEFAULT_JSON = """
         {
           "entries": [
             { "kind": "pattern", "scope": "recipe", "pattern": "*_armor_trim_smithing_template", "mode": "glob", "enabled": true, "note": "default" },
-            { "kind": "ingredient", "typeUid": "minecraft:item_stack", "uid": "ae2:facade", "enabled": true, "note": "default" },
+            { "kind": "ingredient", "typeUid": "minecraft:item_stack", "uid": "ae2:facade", "enabled": false, "note": "default" },
             { "kind": "ingredient", "typeUid": "minecraft:item_stack", "uid": "create:copycat_panel", "enabled": false, "note": "default" },
             { "kind": "ingredient", "typeUid": "minecraft:item_stack", "uid": "refinedstorage:cover", "enabled": false, "note": "default" }
           ]
