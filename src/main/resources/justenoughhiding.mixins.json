@@ -8,6 +8,8 @@
   "client": [
     "jei.RevealMixin",
     "jei.ClientToggleStateMixin",
+    "emi.EmiStackListRevealMixin",
+    "emi.EmiHiddenRevealMixin",
     "jei.intent.PluginCallerContextMixin",
     "jei.intent.IngredientManagerIntentMixin",
     "jei.intent.IngredientVisibilityIntentMixin",

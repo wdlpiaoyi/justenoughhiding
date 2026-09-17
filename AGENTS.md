@@ -52,7 +52,8 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
   (`integration/emi/JehEmiPlugin`). `Adapters.active()` picks the highest `priority()`
   adapter, and EMI (100) outranks JEI (10) because EMI overrides the overlay. Hiding in EMI is
   registration-time only (`EmiRegistry.removeEmiStacks/removeRecipes`), unlike JEI; `EmiHide`
-  is a phase-2 placeholder.
+  is a phase-2 placeholder. Reveal for EMI lives in `mixin/emi/EmiStackListRevealMixin` and
+  `mixin/emi/EmiHiddenRevealMixin` (force-hidden checks to false unless `EmiHide.isHidden`).
 
 ## JEI gotchas
 - JEI caches its ingredient list; `hideIngredients`/`unhideIngredients` alone do not refresh it.
