@@ -94,6 +94,16 @@ public final class IntentRegistry implements IntentQuery
         INSTANCE.entries.keySet().removeIf(key -> sourceId.equals(key.sourceId()));
     }
 
+    /** Drops every recorded intent whose source has the given type (e.g. resource packs). */
+    public static void dropByType(IntentSource.Type type)
+    {
+        if (type == null)
+        {
+            return;
+        }
+        INSTANCE.entries.entrySet().removeIf(entry -> entry.getValue().source.type() == type);
+    }
+
     public static void remove(IntentTarget target, String sourceId)
     {
         if (target == null || sourceId == null)

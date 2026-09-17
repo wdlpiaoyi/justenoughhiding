@@ -88,14 +88,17 @@ public final class ListEHiding
         ensureLoaded();
     }
 
-    public void saveIfDirty()
+    /** Writes the list if it changed; returns whether anything was written. */
+    public boolean saveIfDirty()
     {
         if (dirty)
         {
             markKubeJsSaved();
             ListEHidingStore.save(entries);
             dirty = false;
+            return true;
         }
+        return false;
     }
 
     /** Builds the note for a KubeJS-added entry, including its storage state. */

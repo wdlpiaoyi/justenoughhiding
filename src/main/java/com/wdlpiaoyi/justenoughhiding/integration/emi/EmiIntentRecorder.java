@@ -314,6 +314,10 @@ public final class EmiIntentRecorder
             return;
         }
 
+        // Rebuilt because the resource manager/world changed: forget intents that came from packs
+        // which may no longer provide them, then re-record from the current files.
+        IntentRegistry.dropByType(IntentSource.Type.RESOURCE_PACK);
+
         List<HiddenEntry> hides = new ArrayList<>();
         List<PackFilter> filters = new ArrayList<>();
         List<RecipePredicate> recipeFilters = new ArrayList<>();

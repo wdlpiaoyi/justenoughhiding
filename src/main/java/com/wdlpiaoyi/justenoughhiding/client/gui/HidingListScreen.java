@@ -1130,8 +1130,10 @@ public final class HidingListScreen extends Screen
     public void onClose()
     {
         commitEdit();
-        ListEHiding.get().saveIfDirty();
-        JeHide.reapply();
+        if (ListEHiding.get().saveIfDirty())
+        {
+            JeHide.reapply();
+        }
         super.onClose();
     }
 
