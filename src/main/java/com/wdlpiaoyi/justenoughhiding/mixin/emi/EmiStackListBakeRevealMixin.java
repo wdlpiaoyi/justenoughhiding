@@ -6,6 +6,7 @@ import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
 import com.wdlpiaoyi.justenoughhiding.integration.emi.EmiIntentRecorder;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentSuppressor;
 import dev.emi.emi.api.stack.EmiStack;
+import dev.emi.emi.data.IndexStackData;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -14,6 +15,7 @@ import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.ArrayList;
@@ -80,6 +82,32 @@ public class EmiStackListBakeRevealMixin
     private static void jeh$scanHiddenStacks(CallbackInfo ci)
     {
         EmiIntentRecorder.scanHiddenStacks();
+    }
+
+    /**
+     * Reveal support: while reveal is enabled, ignore the {@code emi:index_stacks} data-pack
+     * removals/filters, so those stacks are not dropped from EMI's index.
+     */
+    @Redirect(
+        method = "bake",
+        at = @At(value = "INVOKE", target = "Ldev/emi/emi/data/IndexStackData;removed()Ljava/util/List;", ordinal = 1),
+        remap = false,
+        require = 0
+    )
+    private static List<?> jeh$revealDataRemoved(IndexStackData data)
+    {
+        return JehConfig.revealEnabled() ? List.of() : data.removed();
+    }
+
+    @Redirect(
+        method = "bake",
+        at = @At(value = "INVOKE", target = "Ldev/emi/emi/data/IndexStackData;filters()Ljava/util/List;", ordinal = 1),
+        remap = false,
+        require = 0
+    )
+    private static List<?> jeh$revealDataFilters(IndexStackData data)
+    {
+        return JehConfig.revealEnabled() ? List.of() : data.filters();
     }
 
     /** Re-add default item stacks that are absent from the index, so reveal works with cached lists. */

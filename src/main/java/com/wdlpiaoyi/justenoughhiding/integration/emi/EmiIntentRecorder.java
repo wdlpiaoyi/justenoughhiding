@@ -11,6 +11,8 @@ import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import com.wdlpiaoyi.justenoughhiding.intent.source.ModSourceResolver;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
+import dev.emi.emi.data.EmiData;
+import dev.emi.emi.data.IndexStackData;
 import dev.emi.emi.registry.EmiStackList;
 import dev.emi.emi.registry.EmiTags;
 import dev.emi.emi.runtime.EmiHidden;
@@ -24,8 +26,10 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraftforge.registries.ForgeRegistries;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 /**
  * Records EMI-native hide actions as intents, mirroring {@code JeiIntentRecorder}:
@@ -139,9 +143,10 @@ public final class EmiIntentRecorder
     }
 
     /**
-     * Records what EMI itself hides while baking: the {@code c:hidden_from_recipe_viewers} tags and
-     * plugin-disabled stacks/predicates. The source is the hidden stack's namespace (best effort,
-     * mirroring JEH's JEI "absent" attribution); duplicates are not counted again.
+     * Records what EMI itself hides while baking: the {@code c:hidden_from_recipe_viewers} tags,
+     * plugin-disabled stacks/predicates, and the data-pack {@code emi:index_stacks} removals/filters.
+     * The source is the hidden stack's namespace (best effort, mirroring JEH's JEI "absent"
+     * attribution); duplicates are not counted again.
      */
     public static void scanHiddenStacks()
     {
@@ -156,6 +161,31 @@ public final class EmiIntentRecorder
             TagKey<Fluid> fluidTag = TagKey.create(Registries.FLUID, EmiTags.HIDDEN_FROM_RECIPE_VIEWERS);
             List<Predicate<EmiStack>> disabledFilters = List.copyOf(EmiHidden.pluginDisabledFilters);
 
+            List<EmiIngredient> dataRemoved = new ArrayList<>();
+            List<Predicate<String>> dataFilters = new ArrayList<>();
+            try
+            {
+                for (Supplier<IndexStackData> supplier : EmiData.stackData)
+                {
+                    IndexStackData data = supplier.get();
+                    if (data == null)
+                    {
+                        continue;
+                    }
+                    dataRemoved.addAll(data.removed());
+                    for (IndexStackData.Filter filter : data.filters())
+                    {
+                        if (filter != null && filter.filter() != null)
+                        {
+                            dataFilters.add(filter.filter());
+                        }
+                    }
+                }
+            }
+            catch (Throwable ignored)
+            {
+            }
+
             for (Item item : ForgeRegistries.ITEMS)
             {
                 if (item == null)
@@ -165,6 +195,7 @@ public final class EmiIntentRecorder
                 EmiStack stack;
                 ItemStack vanilla = ItemStack.EMPTY;
                 String namespace = "unknown";
+                String idString = null;
                 try
                 {
                     vanilla = new ItemStack(item);
@@ -177,6 +208,7 @@ public final class EmiIntentRecorder
                     if (id != null)
                     {
                         namespace = id.getNamespace();
+                        idString = id.toString();
                     }
                 }
                 catch (Throwable t)
@@ -201,6 +233,11 @@ public final class EmiIntentRecorder
                 if (hidden)
                 {
                     recordAbsent(stack, IntentKind.TAG_HIDDEN, namespace);
+                    continue;
+                }
+                if (matchesDataFilter(dataFilters, idString))
+                {
+                    recordAbsent(stack, IntentKind.HIDDEN, namespace);
                     continue;
                 }
                 for (Predicate<EmiStack> filter : disabledFilters)
@@ -255,6 +292,18 @@ public final class EmiIntentRecorder
                 }
             }
 
+            for (EmiIngredient ingredient : dataRemoved)
+            {
+                if (ingredient == null)
+                {
+                    continue;
+                }
+                for (EmiStack stack : stacksOf(ingredient))
+                {
+                    recordAbsent(stack, IntentKind.HIDDEN, namespaceOf(stack));
+                }
+            }
+
             for (EmiIngredient ingredient : List.copyOf(EmiHidden.pluginDisabledStacks))
             {
                 if (ingredient == null)
@@ -263,24 +312,47 @@ public final class EmiIntentRecorder
                 }
                 for (EmiStack stack : stacksOf(ingredient))
                 {
-                    String namespace = "unknown";
-                    try
-                    {
-                        ResourceLocation id = stack.getId();
-                        if (id != null)
-                        {
-                            namespace = id.getNamespace();
-                        }
-                    }
-                    catch (Throwable ignored)
-                    {
-                    }
-                    recordAbsent(stack, IntentKind.HIDDEN, namespace);
+                    recordAbsent(stack, IntentKind.HIDDEN, namespaceOf(stack));
                 }
             }
         }
         catch (Throwable ignored)
         {
+        }
+    }
+
+    private static boolean matchesDataFilter(List<Predicate<String>> filters, String id)
+    {
+        if (id == null || filters.isEmpty())
+        {
+            return false;
+        }
+        for (Predicate<String> filter : filters)
+        {
+            try
+            {
+                if (filter.test(id))
+                {
+                    return true;
+                }
+            }
+            catch (Throwable ignored)
+            {
+            }
+        }
+        return false;
+    }
+
+    private static String namespaceOf(EmiStack stack)
+    {
+        try
+        {
+            ResourceLocation id = stack.getId();
+            return id == null ? "unknown" : id.getNamespace();
+        }
+        catch (Throwable t)
+        {
+            return "unknown";
         }
     }
 
