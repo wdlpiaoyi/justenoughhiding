@@ -28,11 +28,15 @@
 | 文件 | 说明 |
 | --- | --- |
 | `client.toml` | 模组设置（见下），首次运行由 Forge 生成 |
-| `listehiding.json` | 隐藏列表，**首次运行自动生成空列表**，用 GUI 或外部编辑 |
-| `listehiding.example.json` | 首次运行生成的示例（各项 `enabled=false`，仅作参考） |
+| `listehiding.json` | 隐藏列表，**首次运行自动生成默认列表**（见下），用 GUI 或外部编辑 |
 | `intentoverrides.json` | 每条 intent 是否参与隐藏（由 GUI 里 Enable/Disable 写入） |
 
-> 整合包作者可把仓库里的 `defaultconfigs/jeh/`（`client.toml` + `listehiding.example.json`）放到实例的 `defaultconfigs/jeh/`，Forge 会在新实例首次运行时套用（`client.toml`）。
+> 首次生成的 `listehiding.json` 自带几条 `note="default"` 的默认项，同时充当格式示例：
+> - 隐藏纹饰锻造配方（`pattern` 作用域 `recipe`，`*_armor_trim_smithing_template`），**启用**；
+> - 隐藏 AE2 伪装板 `ae2:facade`，**启用**；
+> - 其他模组伪装板（Create `create:copycat_panel`、Refined Storage `refinedstorage:cover`），默认**禁用**，需要时改 `enabled` 为 `true`。
+>
+> 整合包作者可把仓库里的 `defaultconfigs/jeh/client.toml` 放到实例的 `defaultconfigs/jeh/`，Forge 会在新实例首次运行时套用。
 
 `client.toml` 主要项：
 

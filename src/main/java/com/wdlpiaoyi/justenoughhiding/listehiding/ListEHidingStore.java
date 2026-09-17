@@ -20,24 +20,25 @@ import java.util.List;
  * Loads and saves {@link ListEHidingEntry} entries as JSON at
  * {@code config/jeh/listehiding.json}.
  * <p>
- * On first run the mod creates an empty {@code listehiding.json} plus a
- * {@code listehiding.example.json} with commented examples; the active list is normally edited
- * through the GUI or externally.
+ * On first run the mod creates the file with a few defaults (see {@link #ensureDefaults()}),
+ * which also serve as a format example. The list is normally edited through the GUI or externally.
  */
 public final class ListEHidingStore
 {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
-    private static final String EMPTY_JSON = "{\n  \"entries\": []\n}\n";
-    private static final String EXAMPLE_JSON = """
+    /**
+     * Default list written on first run (also serves as the format example). Entries carry the note
+     * {@code default}: armor-trim smithing recipes and AE2 facades are hidden; other mods' disguise
+     * plates (Create copycat, Refined Storage cover) are listed but disabled so users can opt in.
+     */
+    private static final String DEFAULT_JSON = """
         {
-          "_comment": "JEH ListEHiding examples. Entries are ignored while \\"enabled\\" is false; the mod uses config/jeh/listehiding.json (auto-created empty on first run).",
           "entries": [
-            { "kind": "ingredient", "typeUid": "minecraft:item_stack", "uid": "minecraft:stone", "enabled": false, "note": "example: hide an item", "priority": 0 },
-            { "kind": "tag", "tag": "minecraft:logs", "enabled": false, "note": "example: hide a tag" },
-            { "kind": "recipe", "recipeType": "minecraft:crafting", "recipeId": "minecraft:stick", "enabled": false, "note": "example: hide a recipe" },
-            { "kind": "recipe_category", "recipeType": "minecraft:smithing", "enabled": false, "note": "example: hide a recipe category" },
-            { "kind": "pattern", "scope": "ingredient|minecraft:item_stack", "pattern": "minecraft:*_ore", "mode": "glob", "enabled": false, "note": "example: hide by wildcard" }
+            { "kind": "pattern", "scope": "recipe", "pattern": "*_armor_trim_smithing_template", "mode": "glob", "enabled": true, "note": "default" },
+            { "kind": "ingredient", "typeUid": "minecraft:item_stack", "uid": "ae2:facade", "enabled": true, "note": "default" },
+            { "kind": "ingredient", "typeUid": "minecraft:item_stack", "uid": "create:copycat_panel", "enabled": false, "note": "default" },
+            { "kind": "ingredient", "typeUid": "minecraft:item_stack", "uid": "refinedstorage:cover", "enabled": false, "note": "default" }
           ]
         }
         """;
@@ -51,7 +52,7 @@ public final class ListEHidingStore
         return FMLPaths.CONFIGDIR.get().resolve("jeh").resolve("listehiding.json");
     }
 
-    /** Writes an empty {@code listehiding.json} and a {@code listehiding.example.json} if absent. */
+    /** Writes the default {@code listehiding.json} (with example entries) if it does not exist. */
     public static synchronized void ensureDefaults()
     {
         try
@@ -64,17 +65,12 @@ public final class ListEHidingStore
             }
             if (!Files.exists(file))
             {
-                Files.writeString(file, EMPTY_JSON, StandardCharsets.UTF_8);
-            }
-            Path example = dir == null ? null : dir.resolve("listehiding.example.json");
-            if (example != null && !Files.exists(example))
-            {
-                Files.writeString(example, EXAMPLE_JSON, StandardCharsets.UTF_8);
+                Files.writeString(file, DEFAULT_JSON, StandardCharsets.UTF_8);
             }
         }
         catch (Throwable t)
         {
-            JustEnoughHiding.LOGGER.warn("[JEH] failed to create default listehiding files", t);
+            JustEnoughHiding.LOGGER.warn("[JEH] failed to create default listehiding file", t);
         }
     }
 
