@@ -11,6 +11,7 @@
     "emi.EmiStackListRevealMixin",
     "emi.EmiStackListBakeRevealMixin",
     "emi.EmiRecipesBakeRevealMixin",
+    "emi.EmiStackCacheMixin",
     "emi.EmiHiddenRevealMixin",
     "jei.intent.PluginCallerContextMixin",
     "jei.intent.IngredientManagerIntentMixin",
