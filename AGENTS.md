@@ -54,9 +54,12 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
   runtime hide API: JEH expresses hiding as a predicate in `EmiStackList/EmiRecipes.invalidators`,
   re-added at `bake()` HEAD by `mixin/emi/EmiStackListBakeRevealMixin` /
   `EmiRecipesBakeRevealMixin` after clear. `client/jehide/EmiHide` computes the hidden id sets
-  (list + hide-intents) and is EMI-type-free; `mixin/emi/EmiRevealSupport` bridges EMI
+  (list + hide-intents) and is EMI-type-free; `client/viewer/emi/EmiRevealSupport` bridges EMI
   `EmiStack`/`EmiRecipe` to it. Reveal lives in `mixin/emi/EmiStackListRevealMixin` and
   `mixin/emi/EmiHiddenRevealMixin` (force-hidden checks to false unless JEH hides it).
+  EMI-native intents (plugin `removeEmiStacks` predicates, edit-mode `EmiHidden.setVisibility`)
+  are recorded by `mixin/emi/EmiRegistryIntentMixin` / `EmiHiddenIntentMixin` through
+  `integration/emi/EmiIntentRecorder`.
 
 ## JEI gotchas
 - JEI caches its ingredient list; `hideIngredients`/`unhideIngredients` alone do not refresh it.

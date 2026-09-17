@@ -6,6 +6,7 @@ import com.wdlpiaoyi.justenoughhiding.intent.IngredientKey;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentKind;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentRegistry;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentSource;
+import com.wdlpiaoyi.justenoughhiding.intent.IntentSuppressor;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import com.wdlpiaoyi.justenoughhiding.intent.source.ModSourceResolver;
 import mezz.jei.api.ingredients.IIngredientHelper;
@@ -28,33 +29,15 @@ public final class JeiIntentRecorder
         return !JehConfig.intentRecordingEnabled();
     }
 
-    private static final ThreadLocal<Integer> SUPPRESS = ThreadLocal.withInitial(() -> 0);
-
     /** Run an action without recording the JEI changes it makes (used by JEHide / reveal). */
     public static void runSuppressed(Runnable action)
     {
-        SUPPRESS.set(SUPPRESS.get() + 1);
-        try
-        {
-            action.run();
-        }
-        finally
-        {
-            int depth = SUPPRESS.get() - 1;
-            if (depth <= 0)
-            {
-                SUPPRESS.remove();
-            }
-            else
-            {
-                SUPPRESS.set(depth);
-            }
-        }
+        IntentSuppressor.runSuppressed(action);
     }
 
     private static boolean skip()
     {
-        return SUPPRESS.get() > 0 || disabled();
+        return IntentSuppressor.suppressed() || disabled();
     }
 
     public static IntentSource currentSource()

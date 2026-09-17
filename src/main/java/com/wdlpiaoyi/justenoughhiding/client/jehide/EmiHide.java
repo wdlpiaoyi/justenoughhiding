@@ -5,6 +5,7 @@ import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetMatcher;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
 import com.wdlpiaoyi.justenoughhiding.intent.Intent;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentRegistry;
+import com.wdlpiaoyi.justenoughhiding.intent.IntentSuppressor;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import com.wdlpiaoyi.justenoughhiding.listehiding.ListEHiding;
 import com.wdlpiaoyi.justenoughhiding.listehiding.ListEHidingEntry;
@@ -94,8 +95,10 @@ public final class EmiHide
     public static void reapply()
     {
         invalidate();
+        IntentSuppressor.holdOnce();
         if (!reloadEmi())
         {
+            IntentSuppressor.release();
             reloadResources();
         }
     }

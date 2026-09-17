@@ -3,6 +3,7 @@ package com.wdlpiaoyi.justenoughhiding.mixin.emi;
 import com.wdlpiaoyi.justenoughhiding.JustEnoughHiding;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.emi.EmiRevealSupport;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
+import com.wdlpiaoyi.justenoughhiding.intent.IntentSuppressor;
 import dev.emi.emi.api.stack.EmiStack;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -50,6 +51,7 @@ public class EmiStackListBakeRevealMixin
     @Inject(method = "bake", at = @At("HEAD"), remap = false, require = 0)
     private static void jeh$revealInvalidators(CallbackInfo ci)
     {
+        IntentSuppressor.release();
         if (!jeh$loggedActive)
         {
             jeh$loggedActive = true;

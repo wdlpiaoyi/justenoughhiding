@@ -24,6 +24,7 @@ public final class ModSourceResolver
         "cpw.mods.",
         "org.spongepowered.",
         "mezz.jei.",
+        "dev.emi.",
         "com.wdlpiaoyi.justenoughhiding."
     };
 
