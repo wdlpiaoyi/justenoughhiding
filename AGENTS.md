@@ -35,7 +35,11 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
   (`ListEHidingStore`), `intentoverrides.json` (`IntentOverrides`). The mod never generates
   `listehiding.json` — it is hand-written/edited.
 - New mixins must be registered in `src/main/resources/justenoughhiding.mixins.json` (`client`).
-  `mixin/JehMixinPlugin` only applies `*.mixin.jei.*` when JEI is loaded.
+  `mixin/JehMixinPlugin` only applies `*.mixin.jei.*` when JEI is loaded, and `*.mixin.emi.*` when EMI is loaded.
+- No JEI/EMI class may be referenced from code that runs unconditionally (`client/gui`,
+  `client/jehide/JeHide`, `JehClientEvents`, KubeJS binding) — otherwise the mod hard-depends on that
+  viewer. `client/jehide/JeHide` is a viewer-agnostic facade that only calls
+  `Adapters.active().reapplyHides()/tickHides()`; the JEI engine lives in `client/jehide/JeiHide`.
 
 ## Optional integrations
 - JEI: `compileOnly` API + `runtimeOnly` forge jar; `mods.toml` requires `[15.55.0,)`. The forge

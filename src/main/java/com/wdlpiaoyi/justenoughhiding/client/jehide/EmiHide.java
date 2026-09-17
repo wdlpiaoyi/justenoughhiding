@@ -30,6 +30,11 @@ public final class EmiHide
         // TODO(phase 2): debounce Minecraft.reloadResourcePacks() so EMI re-registers.
     }
 
+    public static void tick()
+    {
+        // TODO(phase 2)
+    }
+
     /** Consulted by the future EMI reveal mixins. */
     public static boolean isHidden(Object emiStack)
     {

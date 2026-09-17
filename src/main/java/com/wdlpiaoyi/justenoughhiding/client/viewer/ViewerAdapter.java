@@ -101,6 +101,16 @@ public interface ViewerAdapter
         return List.of();
     }
 
+    /** Re-apply the current hide rules (ListEHiding + recorded hide-intents) to this viewer. */
+    default void reapplyHides()
+    {
+    }
+
+    /** Called every client tick; viewers can debounce expensive re-application here. */
+    default void tickHides()
+    {
+    }
+
     // ---- lifecycle / management (reveal here, hide later, EMI later) ----
 
     default void onRuntimeAvailable(Object runtime)

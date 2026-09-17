@@ -1,6 +1,7 @@
 package com.wdlpiaoyi.justenoughhiding.client.viewer.emi;
 
 import com.wdlpiaoyi.justenoughhiding.client.gui.column.Column;
+import com.wdlpiaoyi.justenoughhiding.client.jehide.EmiHide;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.DefaultColumns;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.IconRenderer;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetKeys;
@@ -174,6 +175,18 @@ public final class EmiAdapter implements ViewerAdapter
         return ResourceLocation.tryParse(value) == null
             ? null
             : IntentTarget.of(IngredientKey.of(EmiTargetIndex.ITEM_TYPE, value));
+    }
+
+    @Override
+    public void reapplyHides()
+    {
+        EmiHide.reapply();
+    }
+
+    @Override
+    public void tickHides()
+    {
+        EmiHide.tick();
     }
 
     private EmiTargetIndex index()
