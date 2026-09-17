@@ -3,6 +3,7 @@ package com.wdlpiaoyi.justenoughhiding.mixin.emi;
 import com.wdlpiaoyi.justenoughhiding.JustEnoughHiding;
 import com.wdlpiaoyi.justenoughhiding.client.viewer.emi.EmiRevealSupport;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
+import com.wdlpiaoyi.justenoughhiding.integration.emi.EmiIntentRecorder;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentSuppressor;
 import dev.emi.emi.api.stack.EmiStack;
 import net.minecraft.world.item.Item;
@@ -72,6 +73,13 @@ public class EmiStackListBakeRevealMixin
         {
             invalidators.add(JEH_HIDE);
         }
+    }
+
+    /** After EMI baked its index, record the hiding it applied (tags / plugin-disabled stacks). */
+    @Inject(method = "bake", at = @At("TAIL"), remap = false, require = 0)
+    private static void jeh$scanHiddenStacks(CallbackInfo ci)
+    {
+        EmiIntentRecorder.scanHiddenStacks();
     }
 
     /** Re-add default item stacks that are absent from the index, so reveal works with cached lists. */

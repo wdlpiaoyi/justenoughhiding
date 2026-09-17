@@ -13,21 +13,22 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * Records EMI edit-mode/config visibility changes as intents: hiding records an
  * {@code EDIT_MODE_HIDDEN} intent, showing forgets it again (visible is the default).
+ * Note: the second parameter of {@code setVisibility} is {@code hide}, not "visible".
  */
 @Pseudo
 @Mixin(targets = "dev.emi.emi.runtime.EmiHidden", remap = false)
 public class EmiHiddenIntentMixin
 {
     @Inject(method = "setVisibility", at = @At("HEAD"), remap = false, require = 0)
-    private static void jeh$onSetVisibility(EmiIngredient stack, boolean visible, boolean disabled, CallbackInfo ci)
+    private static void jeh$onSetVisibility(EmiIngredient stack, boolean hide, boolean similar, CallbackInfo ci)
     {
-        if (visible)
+        if (hide)
         {
-            EmiIntentRecorder.removeIngredient(stack, IntentSource.EMI_EDIT_MODE);
+            EmiIntentRecorder.recordIngredient(stack, IntentKind.EDIT_MODE_HIDDEN, IntentSource.EMI_EDIT_MODE);
         }
         else
         {
-            EmiIntentRecorder.recordIngredient(stack, IntentKind.EDIT_MODE_HIDDEN, IntentSource.EMI_EDIT_MODE);
+            EmiIntentRecorder.removeIngredient(stack, IntentSource.EMI_EDIT_MODE);
         }
     }
 }

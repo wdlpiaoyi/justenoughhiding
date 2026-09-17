@@ -59,7 +59,10 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
   `mixin/emi/EmiHiddenRevealMixin` (force-hidden checks to false unless JEH hides it).
   EMI-native intents (plugin `removeEmiStacks` predicates, edit-mode `EmiHidden.setVisibility`)
   are recorded by `mixin/emi/EmiRegistryIntentMixin` / `EmiHiddenIntentMixin` through
-  `integration/emi/EmiIntentRecorder`.
+  `integration/emi/EmiIntentRecorder`. Because JEH ships an EMI plugin, EMI's
+  `jei.PluginCallerMixin` treats it as an EMI-handled mod and skips its JEI plugin callbacks;
+  `mixin/jei/intent/PluginCallerContextMixin` re-invokes JEH's own plugin for the runtime phases so
+  the JEI-side reveal/scanner still run under EMI.
 
 ## JEI gotchas
 - JEI caches its ingredient list; `hideIngredients`/`unhideIngredients` alone do not refresh it.

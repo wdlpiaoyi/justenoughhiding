@@ -73,6 +73,18 @@ public final class IntentRegistry implements IntentQuery
         INSTANCE.entries.clear();
     }
 
+    /** True when the exact target/kind/source combination is already recorded. */
+    public static boolean contains(IntentTarget target, IntentKind kind, String sourceId)
+    {
+        if (target == null || kind == null)
+        {
+            return false;
+        }
+        Key key = new Key(target, sourceId == null ? "" : sourceId);
+        Entry entry = INSTANCE.entries.get(key);
+        return entry != null && entry.kind == kind;
+    }
+
     public static void dropBySource(String sourceId)
     {
         if (sourceId == null)
