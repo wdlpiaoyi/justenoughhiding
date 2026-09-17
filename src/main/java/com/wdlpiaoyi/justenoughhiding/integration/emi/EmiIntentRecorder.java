@@ -1,5 +1,8 @@
 package com.wdlpiaoyi.justenoughhiding.integration.emi;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.wdlpiaoyi.justenoughhiding.JustEnoughHiding;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
 import com.wdlpiaoyi.justenoughhiding.intent.IngredientKey;
@@ -11,13 +14,15 @@ import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import com.wdlpiaoyi.justenoughhiding.intent.source.ModSourceResolver;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
-import dev.emi.emi.data.EmiData;
-import dev.emi.emi.data.IndexStackData;
+import dev.emi.emi.api.stack.serializer.EmiIngredientSerializer;
 import dev.emi.emi.registry.EmiStackList;
 import dev.emi.emi.registry.EmiTags;
 import dev.emi.emi.runtime.EmiHidden;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -26,10 +31,13 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraftforge.registries.ForgeRegistries;
 
+import java.io.BufferedReader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 /**
  * Records EMI-native hide actions as intents, mirroring {@code JeiIntentRecorder}:
@@ -45,6 +53,14 @@ public final class EmiIntentRecorder
 {
     private static final String ITEM_TYPE = "minecraft:item_stack";
     private static final String FLUID_TYPE = "fluid_stack";
+
+    private record PackRemoved(EmiStack stack, IntentSource source)
+    {
+    }
+
+    private record PackFilter(Predicate<String> predicate, IntentSource source)
+    {
+    }
 
     private EmiIntentRecorder()
     {
@@ -144,9 +160,10 @@ public final class EmiIntentRecorder
 
     /**
      * Records what EMI itself hides while baking: the {@code c:hidden_from_recipe_viewers} tags,
-     * plugin-disabled stacks/predicates, and the data-pack {@code emi:index_stacks} removals/filters.
-     * The source is the hidden stack's namespace (best effort, mirroring JEH's JEI "absent"
-     * attribution); duplicates are not counted again.
+     * plugin-disabled stacks/predicates, and the data-pack ({@code emi:index_stacks}) removals and
+     * filters. Data-pack hides are attributed to the resource/data pack that provided the file;
+     * tag/plugin hides use the hidden stack's namespace (best effort). Duplicates are not counted
+     * again.
      */
     public static void scanHiddenStacks()
     {
@@ -161,30 +178,9 @@ public final class EmiIntentRecorder
             TagKey<Fluid> fluidTag = TagKey.create(Registries.FLUID, EmiTags.HIDDEN_FROM_RECIPE_VIEWERS);
             List<Predicate<EmiStack>> disabledFilters = List.copyOf(EmiHidden.pluginDisabledFilters);
 
-            List<EmiIngredient> dataRemoved = new ArrayList<>();
-            List<Predicate<String>> dataFilters = new ArrayList<>();
-            try
-            {
-                for (Supplier<IndexStackData> supplier : EmiData.stackData)
-                {
-                    IndexStackData data = supplier.get();
-                    if (data == null)
-                    {
-                        continue;
-                    }
-                    dataRemoved.addAll(data.removed());
-                    for (IndexStackData.Filter filter : data.filters())
-                    {
-                        if (filter != null && filter.filter() != null)
-                        {
-                            dataFilters.add(filter.filter());
-                        }
-                    }
-                }
-            }
-            catch (Throwable ignored)
-            {
-            }
+            List<PackRemoved> packRemoved = new ArrayList<>();
+            List<PackFilter> packFilters = new ArrayList<>();
+            collectPackData(packRemoved, packFilters);
 
             for (Item item : ForgeRegistries.ITEMS)
             {
@@ -235,9 +231,8 @@ public final class EmiIntentRecorder
                     recordAbsent(stack, IntentKind.TAG_HIDDEN, namespace);
                     continue;
                 }
-                if (matchesDataFilter(dataFilters, idString))
+                if (recordPackFilterMatch(stack, idString, packFilters))
                 {
-                    recordAbsent(stack, IntentKind.HIDDEN, namespace);
                     continue;
                 }
                 for (Predicate<EmiStack> filter : disabledFilters)
@@ -292,15 +287,11 @@ public final class EmiIntentRecorder
                 }
             }
 
-            for (EmiIngredient ingredient : dataRemoved)
+            for (PackRemoved removed : packRemoved)
             {
-                if (ingredient == null)
+                if (removed.stack() != null)
                 {
-                    continue;
-                }
-                for (EmiStack stack : stacksOf(ingredient))
-                {
-                    recordAbsent(stack, IntentKind.HIDDEN, namespaceOf(stack));
+                    recordWith(removed.stack(), IntentKind.HIDDEN, removed.source());
                 }
             }
 
@@ -321,54 +312,209 @@ public final class EmiIntentRecorder
         }
     }
 
-    private static boolean matchesDataFilter(List<Predicate<String>> filters, String id)
+    /** Reads {@code assets/emi/index/stacks/*.json} per pack, so hides are attributed to the pack. */
+    private static void collectPackData(List<PackRemoved> removedOut, List<PackFilter> filtersOut)
     {
-        if (id == null || filters.isEmpty())
+        ResourceManager manager;
+        Map<ResourceLocation, List<Resource>> resources;
+        try
         {
-            return false;
+            Minecraft minecraft = Minecraft.getInstance();
+            if (minecraft == null || (manager = minecraft.getResourceManager()) == null)
+            {
+                return;
+            }
+            resources = manager.listResourceStacks("index/stacks", path -> path.getPath().endsWith(".json"));
         }
-        for (Predicate<String> filter : filters)
+        catch (Throwable t)
+        {
+            return;
+        }
+        if (resources == null)
+        {
+            return;
+        }
+
+        for (Map.Entry<ResourceLocation, List<Resource>> entry : resources.entrySet())
+        {
+            ResourceLocation location = entry.getKey();
+            if (location == null || !"emi".equals(location.getNamespace()) || entry.getValue() == null)
+            {
+                continue;
+            }
+            for (Resource resource : entry.getValue())
+            {
+                if (resource == null)
+                {
+                    continue;
+                }
+                IntentSource source = packSource(resource);
+                try (BufferedReader reader = resource.openAsReader())
+                {
+                    JsonElement root = JsonParser.parseReader(reader);
+                    if (root == null || !root.isJsonObject())
+                    {
+                        continue;
+                    }
+                    JsonObject json = root.getAsJsonObject();
+                    readRemoved(json, source, removedOut);
+                    readFilters(json, source, filtersOut);
+                }
+                catch (Throwable ignored)
+                {
+                }
+            }
+        }
+    }
+
+    private static void readRemoved(JsonObject json, IntentSource source, List<PackRemoved> out)
+    {
+        JsonElement element = json.get("removed");
+        if (element == null || !element.isJsonArray())
+        {
+            return;
+        }
+        for (JsonElement entry : element.getAsJsonArray())
         {
             try
             {
-                if (filter.test(id))
+                EmiIngredient ingredient = EmiIngredientSerializer.getDeserialized(entry);
+                for (EmiStack stack : stacksOf(ingredient))
                 {
-                    return true;
+                    out.add(new PackRemoved(stack, source));
                 }
             }
             catch (Throwable ignored)
             {
             }
         }
+    }
+
+    private static void readFilters(JsonObject json, IntentSource source, List<PackFilter> out)
+    {
+        JsonElement element = json.get("filters");
+        if (element == null || !element.isJsonArray())
+        {
+            return;
+        }
+        for (JsonElement entry : element.getAsJsonArray())
+        {
+            if (entry == null || !entry.isJsonPrimitive())
+            {
+                continue;
+            }
+            Predicate<String> predicate = filterPredicate(entry.getAsString());
+            if (predicate != null)
+            {
+                out.add(new PackFilter(predicate, source));
+            }
+        }
+    }
+
+    private static boolean recordPackFilterMatch(EmiStack stack, String id, List<PackFilter> filters)
+    {
+        if (id == null || filters.isEmpty())
+        {
+            return false;
+        }
+        for (PackFilter filter : filters)
+        {
+            boolean matched;
+            try
+            {
+                matched = filter.predicate().test(id);
+            }
+            catch (Throwable t)
+            {
+                continue;
+            }
+            if (matched)
+            {
+                recordWith(stack, IntentKind.HIDDEN, filter.source());
+                return true;
+            }
+        }
         return false;
     }
 
-    private static String namespaceOf(EmiStack stack)
+    private static Predicate<String> filterPredicate(String value)
     {
+        if (value == null || value.isBlank())
+        {
+            return null;
+        }
+        if (value.startsWith("/") && value.endsWith("/") && value.length() > 2)
+        {
+            try
+            {
+                Pattern pattern = Pattern.compile(value.substring(1, value.length() - 1));
+                return id -> pattern.matcher(id).find();
+            }
+            catch (Throwable t)
+            {
+                return null;
+            }
+        }
+        return value::equals;
+    }
+
+    private static IntentSource packSource(Resource resource)
+    {
+        String id;
         try
         {
-            ResourceLocation id = stack.getId();
-            return id == null ? "unknown" : id.getNamespace();
+            id = resource.sourcePackId();
         }
         catch (Throwable t)
         {
-            return "unknown";
+            id = null;
         }
+        return IntentSource.pack(cleanPackId(id));
     }
 
-    private static void recordAbsent(EmiStack stack, IntentKind kind, String namespace)
+    private static String cleanPackId(String id)
     {
+        if (id == null || id.isBlank())
+        {
+            return "datapack";
+        }
+        String value = id.trim();
+        if (value.startsWith("file/"))
+        {
+            value = value.substring("file/".length());
+        }
+        if (value.toLowerCase(Locale.ROOT).endsWith(".zip"))
+        {
+            value = value.substring(0, value.length() - ".zip".length());
+        }
+        while (value.endsWith("/"))
+        {
+            value = value.substring(0, value.length() - 1);
+        }
+        return value.isBlank() ? "datapack" : value;
+    }
+
+    private static void recordWith(EmiStack stack, IntentKind kind, IntentSource source)
+    {
+        if (source == null)
+        {
+            return;
+        }
         IntentTarget target = targetOf(stack);
         if (target == null)
         {
             return;
         }
-        IntentSource source = IntentSource.mod(namespace);
         if (IntentRegistry.contains(target, kind, source.id()))
         {
             return;
         }
         IntentRegistry.record(target, kind, source);
+    }
+
+    private static void recordAbsent(EmiStack stack, IntentKind kind, String namespace)
+    {
+        recordWith(stack, kind, IntentSource.mod(namespace));
     }
 
     private static void recordStack(EmiStack stack, IntentKind kind, IntentSource source)
@@ -421,6 +567,19 @@ public final class EmiIntentRecorder
         catch (Throwable t)
         {
             return List.of();
+        }
+    }
+
+    private static String namespaceOf(EmiStack stack)
+    {
+        try
+        {
+            ResourceLocation id = stack.getId();
+            return id == null ? "unknown" : id.getNamespace();
+        }
+        catch (Throwable t)
+        {
+            return "unknown";
         }
     }
 

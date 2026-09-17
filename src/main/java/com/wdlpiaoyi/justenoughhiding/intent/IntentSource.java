@@ -5,6 +5,7 @@ public record IntentSource(String id, Type type)
     public enum Type
     {
         MOD,
+        RESOURCE_PACK,
         JEI_EDIT_MODE,
         EMI_EDIT_MODE,
         TAG,
@@ -25,5 +26,15 @@ public record IntentSource(String id, Type type)
             return UNKNOWN;
         }
         return new IntentSource(modId, Type.MOD);
+    }
+
+    /** Source for hiding coming from a resource/data pack (label is the pack id). */
+    public static IntentSource pack(String packId)
+    {
+        if (packId == null || packId.isBlank())
+        {
+            return new IntentSource("datapack", Type.RESOURCE_PACK);
+        }
+        return new IntentSource(packId, Type.RESOURCE_PACK);
     }
 }
