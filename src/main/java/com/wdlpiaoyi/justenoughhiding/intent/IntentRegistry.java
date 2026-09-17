@@ -7,6 +7,7 @@ import net.minecraftforge.registries.ForgeRegistries;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -102,6 +103,21 @@ public final class IntentRegistry implements IntentQuery
             return;
         }
         INSTANCE.entries.entrySet().removeIf(entry -> entry.getValue().source.type() == type);
+    }
+
+    /**
+     * Keeps only intents of the given source type whose source id is in {@code activeSourceIds},
+     * dropping the rest (e.g. resource packs that are no longer selected).
+     */
+    public static void retainSources(IntentSource.Type type, Collection<String> activeSourceIds)
+    {
+        if (type == null)
+        {
+            return;
+        }
+        Set<String> active = activeSourceIds == null ? Set.of() : new HashSet<>(activeSourceIds);
+        INSTANCE.entries.entrySet().removeIf(entry ->
+            entry.getValue().source.type() == type && !active.contains(entry.getValue().source.id()));
     }
 
     public static void remove(IntentTarget target, String sourceId)

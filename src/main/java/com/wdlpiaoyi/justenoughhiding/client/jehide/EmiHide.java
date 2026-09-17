@@ -5,6 +5,7 @@ import com.wdlpiaoyi.justenoughhiding.client.viewer.TargetMatcher;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
 import com.wdlpiaoyi.justenoughhiding.intent.Intent;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentRegistry;
+import com.wdlpiaoyi.justenoughhiding.intent.IntentSource;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentSuppressor;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import com.wdlpiaoyi.justenoughhiding.listehiding.ListEHiding;
@@ -67,9 +68,10 @@ public final class EmiHide
     }
 
     /**
-     * Called after every client resource reload. Adding/removing a resource pack does not make EMI
-     * re-bake on its own, so if the selected packs changed we schedule an EMI reload on the next
-     * client tick (making pack changes take effect without a manual {@code /reload}).
+     * Called after every client resource reload. Removing a pack must forget its recorded intents
+     * <em>before</em> the next bake (otherwise JEHide re-hides them and nothing recovers until a
+     * manual {@code /reload}); and since adding/removing a pack does not make EMI re-bake on its
+     * own, we schedule an EMI reload on the next client tick.
      */
     private static void onClientReload()
     {
@@ -83,9 +85,17 @@ public final class EmiHide
         try
         {
             Collection<String> selected = minecraft.getResourcePackRepository().getSelectedIds();
-            List<String> snapshot = selected == null ? List.of() : List.copyOf(selected);
+            List<String> snapshot = new ArrayList<>();
+            if (selected != null)
+            {
+                for (String id : selected)
+                {
+                    snapshot.add(cleanPackId(id));
+                }
+            }
             changed = lastSelectedPacks != null && !lastSelectedPacks.equals(snapshot);
             lastSelectedPacks = snapshot;
+            IntentRegistry.retainSources(IntentSource.Type.RESOURCE_PACK, snapshot);
         }
         catch (Throwable ignored)
         {
@@ -100,6 +110,29 @@ public final class EmiHide
             {
             }
         }
+    }
+
+    /** Mirrors the pack-id cleaning used when recording pack-sourced intents. */
+    private static String cleanPackId(String id)
+    {
+        if (id == null || id.isBlank())
+        {
+            return "datapack";
+        }
+        String value = id.trim();
+        if (value.startsWith("file/"))
+        {
+            value = value.substring("file/".length());
+        }
+        if (value.toLowerCase(java.util.Locale.ROOT).endsWith(".zip"))
+        {
+            value = value.substring(0, value.length() - ".zip".length());
+        }
+        while (value.endsWith("/"))
+        {
+            value = value.substring(0, value.length() - 1);
+        }
+        return value.isBlank() ? "datapack" : value;
     }
 
     /** Called by the EMI plugin on every reload; the snapshot is rebuilt lazily so it always
