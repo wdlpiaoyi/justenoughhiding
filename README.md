@@ -1,5 +1,7 @@
 # Just Enough Hiding (JEH)
 
+> English: [README.en.md](README.en.md)
+
 一个 Minecraft Forge 1.20.1 的**客户端**模组：记录「是谁、出于什么原因隐藏了 JEI / EMI 的内容」，把被隐藏的东西揭示出来，并允许你用一份本地列表把内容从 recipe viewer 里隐藏掉——方便整合包作者统一管理 recipe viewer 内容的隐藏情况。
 
 - Recipe viewer（可选项，二选一）：[JEI](https://www.curseforge.com/minecraft/mc-mods/jei) 或 [EMI](https://www.curseforge.com/minecraft/mc-mods/emi)。两者都装时 **EMI 优先**（JEH 的界面/图标用 EMI，同时 JEI 侧的揭示与 intent 记录照常运行）；都不装时模组不做事。
