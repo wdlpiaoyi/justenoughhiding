@@ -58,6 +58,21 @@ public final class TargetKeys
         };
     }
 
+    /**
+     * Whether an ingredient type uid denotes item stacks. JEI uses {@code item_stack} while EMI
+     * uses {@code minecraft:item_stack}; targets recorded by either viewer must resolve in both.
+     */
+    public static boolean isItemType(String typeUid)
+    {
+        return typeUid != null && typeUid.toLowerCase(Locale.ROOT).endsWith("item_stack");
+    }
+
+    /** Whether an ingredient type uid denotes fluid stacks. */
+    public static boolean isFluidType(String typeUid)
+    {
+        return typeUid != null && typeUid.toLowerCase(Locale.ROOT).endsWith("fluid_stack");
+    }
+
     public static boolean isPattern(String text)
     {
         if (text == null)

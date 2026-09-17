@@ -113,7 +113,7 @@ public final class JeiAdapter implements ViewerAdapter
         {
             return IconRenderer.EMPTY;
         }
-        if (VanillaTypes.ITEM_STACK.getUid().equals(ingredient.key().typeUid()))
+        if (TargetKeys.isItemType(ingredient.key().typeUid()))
         {
             ItemStack stack = resolveItem(ingredient);
             return stack.isEmpty() ? IconRenderer.EMPTY : new ItemIconRenderer(stack);
@@ -303,7 +303,7 @@ public final class JeiAdapter implements ViewerAdapter
 
     private IntentTarget ingredientOfType(String typeUid, String uid)
     {
-        if (VanillaTypes.ITEM_STACK.getUid().equals(typeUid))
+        if (TargetKeys.isItemType(typeUid))
         {
             return ingredientTarget(uid);
         }
@@ -361,7 +361,7 @@ public final class JeiAdapter implements ViewerAdapter
         {
             return ItemStack.EMPTY;
         }
-        if (!VanillaTypes.ITEM_STACK.getUid().equals(ingredient.key().typeUid()))
+        if (!TargetKeys.isItemType(ingredient.key().typeUid()))
         {
             return ItemStack.EMPTY;
         }

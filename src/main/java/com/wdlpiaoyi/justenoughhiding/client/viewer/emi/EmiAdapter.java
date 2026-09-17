@@ -15,7 +15,10 @@ import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import dev.emi.emi.api.stack.EmiStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.material.Fluid;
 import net.minecraftforge.fml.ModList;
+import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -84,8 +87,49 @@ public final class EmiAdapter implements ViewerAdapter
         {
             return IconRenderer.EMPTY;
         }
-        EmiStack stack = index().icon(ingredient.key().typeUid(), ingredient.key().uid());
+        String typeUid = ingredient.key().typeUid();
+        String uid = ingredient.key().uid();
+        String canonical = TargetKeys.isFluidType(typeUid) ? EmiTargetIndex.FLUID_TYPE
+            : TargetKeys.isItemType(typeUid) ? EmiTargetIndex.ITEM_TYPE
+            : typeUid;
+        EmiStack stack = index().icon(canonical, uid);
+        if (stack == null || stack.isEmpty())
+        {
+            stack = resolveStack(typeUid, uid);
+        }
         return stack == null || stack.isEmpty() ? IconRenderer.EMPTY : new EmiIconRenderer(stack);
+    }
+
+    /**
+     * Resolves an ingredient id straight from the registries, so targets recorded by JEI (which
+     * spells the item type uid differently) or missing from EMI's index still get an icon.
+     */
+    private static EmiStack resolveStack(String typeUid, String uid)
+    {
+        if (uid == null || uid.isBlank())
+        {
+            return null;
+        }
+        int brace = uid.indexOf('{');
+        ResourceLocation id = ResourceLocation.tryParse(brace >= 0 ? uid.substring(0, brace) : uid);
+        if (id == null)
+        {
+            return null;
+        }
+        try
+        {
+            if (TargetKeys.isFluidType(typeUid))
+            {
+                Fluid fluid = ForgeRegistries.FLUIDS.getValue(id);
+                return fluid == null ? null : EmiStack.of(fluid);
+            }
+            Item item = ForgeRegistries.ITEMS.getValue(id);
+            return item == null ? null : EmiStack.of(item);
+        }
+        catch (Throwable t)
+        {
+            return null;
+        }
     }
 
     @Override
