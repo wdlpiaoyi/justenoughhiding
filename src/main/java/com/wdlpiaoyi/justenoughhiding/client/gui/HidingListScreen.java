@@ -47,7 +47,6 @@ public final class HidingListScreen extends Screen
     private static final int PRIORITY_COLUMN = 2;
     private static final int NOTE_COLUMN = 4;
     private static final String[] SORT_MODES = {"target", "priority", "enabled", "note", "kind"};
-    private static final String TARGET_HINT = "Type an id; pick a type tab (Auto detects the kind)";
     private static final int SUGGEST_LIMIT = 40;
     private static final int MATCH_CAP = 1000;
 
@@ -80,12 +79,12 @@ public final class HidingListScreen extends Screen
     private int menuY;
     private int batchDeleteStep;
 
-    private String status = "";
+    private Component status = Component.empty();
     private long statusUntil;
 
     public HidingListScreen()
     {
-        super(Component.literal("Just Enough Hiding - List"));
+        super(Component.translatable("jeh.screen.list"));
     }
 
     @Override
@@ -97,52 +96,59 @@ public final class HidingListScreen extends Screen
 
         int buttonX = MARGIN;
 
-        Button newButton = Button.builder(Component.literal("New Entry"), b -> newEntry())
-            .tooltip(Tooltip.create(Component.literal("Add a blank entry")))
+        Button newButton = Button.builder(Component.translatable("jeh.button.new_entry"), b -> newEntry())
+            .tooltip(Tooltip.create(Component.translatable("jeh.tooltip.new_entry")))
             .bounds(buttonX, TOP, 76, ROW_HEIGHT).build();
         addRenderableWidget(newButton);
         buttonX += 80;
 
-        Button saveButton = Button.builder(Component.literal("Save"), b -> save())
-            .tooltip(Tooltip.create(Component.literal("Write changes to config/jeh/listehiding.json")))
+        Button saveButton = Button.builder(Component.translatable("jeh.button.save"), b -> save())
+            .tooltip(Tooltip.create(Component.translatable("jeh.tooltip.save")))
             .bounds(buttonX, TOP, 54, ROW_HEIGHT).build();
         addRenderableWidget(saveButton);
         buttonX += 58;
 
-        refreshButton = Button.builder(Component.literal("Refresh"), b -> onRefreshClicked())
-            .tooltip(Tooltip.create(Component.literal("Discard in-memory changes and re-read the file (click twice)")))
+        refreshButton = Button.builder(Component.translatable("jeh.button.refresh"), b -> onRefreshClicked())
+            .tooltip(Tooltip.create(Component.translatable("jeh.tooltip.refresh_list")))
             .bounds(buttonX, TOP, 70, ROW_HEIGHT).build();
         addRenderableWidget(refreshButton);
         buttonX += 74;
 
-        Button closeButton = Button.builder(Component.literal("Close"), b -> onClose())
-            .tooltip(Tooltip.create(Component.literal("Save and close")))
+        Button closeButton = Button.builder(Component.translatable("jeh.button.close"), b -> onClose())
+            .tooltip(Tooltip.create(Component.translatable("jeh.tooltip.close")))
             .bounds(buttonX, TOP, 54, ROW_HEIGHT).build();
         addRenderableWidget(closeButton);
 
         int controlsY = TOP + ROW_HEIGHT + 4;
 
-        search = new EditBox(this.font, MARGIN, controlsY, Math.min(200, Math.max(120, this.width / 4)), ROW_HEIGHT, Component.literal("Search"));
-        search.setHint(Component.literal("Search"));
+        search = new EditBox(this.font, MARGIN, controlsY, Math.min(200, Math.max(120, this.width / 4)), ROW_HEIGHT, Component.translatable("jeh.search.default"));
+        search.setHint(Component.translatable("jeh.search.default"));
         search.setResponder(value -> apply());
         addRenderableWidget(search);
 
         int dropdownX = search.getX() + search.getWidth() + 6;
         kindDropdown = new Dropdown(this.font, dropdownX, controlsY, 150, ROW_HEIGHT, kindOptions(), "All", value -> apply())
-            .tooltip(Component.literal("Filter by target kind"));
+            .tooltip(Component.translatable("jeh.tooltip.filter_target_kind"))
+            .labels(value -> "All".equals(value) ? Component.translatable("jeh.filter.all").getString() : value);
         dropdownX += 156;
         stateDropdown = new Dropdown(this.font, dropdownX, controlsY, 110, ROW_HEIGHT, List.of("All", "Enabled", "Disabled"), "All", value -> apply())
-            .tooltip(Component.literal("Filter by enabled state"));
+            .tooltip(Component.translatable("jeh.tooltip.filter_state"))
+            .labels(value -> switch (value)
+            {
+                case "Enabled" -> Component.translatable("jeh.filter.enabled").getString();
+                case "Disabled" -> Component.translatable("jeh.filter.disabled").getString();
+                default -> Component.translatable("jeh.filter.all").getString();
+            });
         dropdownX += 116;
         sortDropdown = new Dropdown(this.font, dropdownX, controlsY, 130, ROW_HEIGHT, List.of(SORT_MODES), "target", value -> apply())
-            .tooltip(Component.literal("Sort order"));
+            .tooltip(Component.translatable("jeh.tooltip.sort_order"));
         dropdowns.add(kindDropdown);
         dropdowns.add(stateDropdown);
         dropdowns.add(sortDropdown);
         dropdownX += 136;
 
-        descButton = Button.builder(Component.literal("Desc: off"), b -> toggleDescending())
-            .tooltip(Tooltip.create(Component.literal("Reverse the sort order")))
+        descButton = Button.builder(descMessage(), b -> toggleDescending())
+            .tooltip(Tooltip.create(Component.translatable("jeh.tooltip.desc")))
             .bounds(dropdownX, controlsY, 74, ROW_HEIGHT).build();
         addRenderableWidget(descButton);
 
@@ -157,7 +163,7 @@ public final class HidingListScreen extends Screen
                 entry -> isIntentRow(entry) ? 0xFF909090 : 0xFFE0E0E0),
             Columns.<ListEHidingEntry>fixed(44, entry -> isIntentRow(entry) ? "" : Integer.toString(entry.priority()),
                 entry -> isIntentRow(entry) ? 0xFF909090 : 0xFFC0C0FF),
-            Columns.<ListEHidingEntry>fixed(64, entry -> entry.enabled() ? "enabled" : "disabled",
+            Columns.<ListEHidingEntry>fixed(64, entry -> Component.translatable(entry.enabled() ? "jeh.filter.enabled" : "jeh.filter.disabled").getString(),
                 entry -> entry.enabled() ? 0xFF70FF70 : 0xFFFF7070),
             Columns.<ListEHidingEntry>fixed(200, ListEHidingEntry::note,
                 entry -> isIntentRow(entry) ? 0xFF808080 : 0xFFB0B0B0)
@@ -165,7 +171,7 @@ public final class HidingListScreen extends Screen
         list.setRightClickListener(this::openMenu);
         addRenderableOnly(list);
 
-        inlineEditor = new EditBox(this.font, 0, 0, 10, ROW_HEIGHT, Component.literal("Edit"));
+        inlineEditor = new EditBox(this.font, 0, 0, 10, ROW_HEIGHT, Component.translatable("jeh.search.default"));
         inlineEditor.setMaxLength(256);
         inlineEditor.visible = false;
         inlineEditor.setResponder(this::onEditorChanged);
@@ -219,10 +225,10 @@ public final class HidingListScreen extends Screen
 
     private static String intentNote(Intent intent, boolean editMode)
     {
-        String note = "intent + " + intent.source().id();
+        String note = Component.translatable("jeh.note.intent", intent.source().id()).getString();
         if (editMode && intent.source().type() == IntentSource.Type.JEI_EDIT_MODE)
         {
-            note += " (edit mode paused)";
+            note += Component.translatable("jeh.note.edit_mode_paused").getString();
         }
         return note;
     }
@@ -296,8 +302,14 @@ public final class HidingListScreen extends Screen
     private void toggleDescending()
     {
         descending = !descending;
-        descButton.setMessage(Component.literal("Desc: " + (descending ? "on" : "off")));
+        descButton.setMessage(descMessage());
         apply();
+    }
+
+    private Component descMessage()
+    {
+        return Component.translatable("jeh.button.desc",
+            Component.translatable(descending ? "jeh.value.on" : "jeh.value.off"));
     }
 
     private static Comparator<ListEHidingEntry> comparator(String mode)
@@ -328,7 +340,7 @@ public final class HidingListScreen extends Screen
         ListEHiding.get().saveIfDirty();
         apply();
         JeHide.reapply();
-        setStatus("Saved");
+        setStatus(Component.translatable("jeh.status.saved"));
     }
 
     private void onRefreshClicked()
@@ -336,18 +348,18 @@ public final class HidingListScreen extends Screen
         if (!refreshArmed)
         {
             refreshArmed = true;
-            refreshButton.setMessage(Component.literal("Confirm"));
+            refreshButton.setMessage(Component.translatable("jeh.button.confirm"));
             return;
         }
         refreshArmed = false;
-        refreshButton.setMessage(Component.literal("Refresh"));
+        refreshButton.setMessage(Component.translatable("jeh.button.refresh"));
         commitEdit();
         menu = null;
         ListEHiding.get().reload();
         kindDropdown.setOptions(kindOptions());
         apply();
         JeHide.reapply();
-        setStatus("Reloaded");
+        setStatus(Component.translatable("jeh.status.reloaded"));
     }
 
     private void disarmRefresh()
@@ -355,7 +367,7 @@ public final class HidingListScreen extends Screen
         if (refreshArmed)
         {
             refreshArmed = false;
-            refreshButton.setMessage(Component.literal("Refresh"));
+            refreshButton.setMessage(Component.translatable("jeh.button.refresh"));
         }
     }
 
@@ -381,11 +393,11 @@ public final class HidingListScreen extends Screen
     {
         int count = selection.size();
         List<PopupMenu.Item> items = new ArrayList<>();
-        items.add(new PopupMenu.Item("Enable " + count + " selected", 0xFFFFFFFF, () -> batchSetEnabled(selection, true)));
-        items.add(new PopupMenu.Item("Disable " + count + " selected", 0xFFC0C0FF, () -> batchSetEnabled(selection, false)));
-        String deleteLabel = batchDeleteStep == 0
-            ? "Delete " + count + " selected"
-            : "Confirm delete (" + batchDeleteStep + "/3)";
+        items.add(new PopupMenu.Item(Component.translatable("jeh.menu.batch_enable", count), 0xFFFFFFFF, () -> batchSetEnabled(selection, true)));
+        items.add(new PopupMenu.Item(Component.translatable("jeh.menu.batch_disable", count), 0xFFC0C0FF, () -> batchSetEnabled(selection, false)));
+        Component deleteLabel = batchDeleteStep == 0
+            ? Component.translatable("jeh.menu.batch_delete", count)
+            : Component.translatable("jeh.menu.batch_confirm", batchDeleteStep);
         items.add(new PopupMenu.Item(deleteLabel, 0xFFFF7070, () -> onBatchDelete(selection)));
         menu = PopupMenu.at(this.font, menuX, menuY, 220, items);
     }
@@ -420,7 +432,7 @@ public final class HidingListScreen extends Screen
         }
         list.clearSelection();
         apply();
-        setStatus((enabled ? "Enabled " : "Disabled ") + selection.size() + " rows");
+        setStatus(Component.translatable(enabled ? "jeh.status.batch_enabled" : "jeh.status.batch_disabled", selection.size()));
     }
 
     private void batchDelete(List<ListEHidingEntry> selection)
@@ -444,7 +456,9 @@ public final class HidingListScreen extends Screen
         list.clearSelection();
         kindDropdown.setOptions(kindOptions());
         apply();
-        setStatus("Deleted " + deleted + (skipped > 0 ? ", skipped " + skipped + " intent rows" : ""));
+        setStatus(skipped > 0
+            ? Component.translatable("jeh.status.deleted_skipped", deleted, skipped)
+            : Component.translatable("jeh.status.deleted", deleted));
     }
 
     private void showMainMenu(ListEHidingEntry entry)
@@ -454,22 +468,22 @@ public final class HidingListScreen extends Screen
         if (intent != null)
         {
             boolean enabled = IntentOverrides.isEnabled(intent.target(), intent.source().id());
-            items.add(new PopupMenu.Item(enabled ? "Disable" : "Enable", 0xFFFFFFFF, () -> toggle(entry)));
+            items.add(new PopupMenu.Item(Component.translatable(enabled ? "jeh.menu.disable" : "jeh.menu.enable"), 0xFFFFFFFF, () -> toggle(entry)));
             menu = PopupMenu.at(this.font, menuX, menuY, 190, items);
             return;
         }
-        items.add(new PopupMenu.Item(entry.enabled() ? "Disable" : "Enable", 0xFFFFFFFF, () -> toggle(entry)));
-        items.add(new PopupMenu.Item("Edit target...", 0xFFFFFFFF, () -> startTargetEdit(entry)));
-        items.add(new PopupMenu.Item("Edit note...", 0xFFFFFFFF, () -> startNoteEdit(entry)));
-        items.add(new PopupMenu.Item("Edit priority...", 0xFFFFFFFF, () -> startPriorityEdit(entry)));
-        items.add(new PopupMenu.Item("Delete", 0xFFFF7070, () -> showDeleteConfirm(entry)));
+        items.add(new PopupMenu.Item(Component.translatable(entry.enabled() ? "jeh.menu.disable" : "jeh.menu.enable"), 0xFFFFFFFF, () -> toggle(entry)));
+        items.add(new PopupMenu.Item(Component.translatable("jeh.menu.edit_target"), 0xFFFFFFFF, () -> startTargetEdit(entry)));
+        items.add(new PopupMenu.Item(Component.translatable("jeh.menu.edit_note"), 0xFFFFFFFF, () -> startNoteEdit(entry)));
+        items.add(new PopupMenu.Item(Component.translatable("jeh.menu.edit_priority"), 0xFFFFFFFF, () -> startPriorityEdit(entry)));
+        items.add(new PopupMenu.Item(Component.translatable("jeh.menu.delete"), 0xFFFF7070, () -> showDeleteConfirm(entry)));
         menu = PopupMenu.at(this.font, menuX, menuY, 190, items);
     }
 
     private void showDeleteConfirm(ListEHidingEntry entry)
     {
         menu = PopupMenu.at(this.font, menuX, menuY, 190, List.of(
-            new PopupMenu.Item("Confirm delete", 0xFFFF3030, () -> delete(entry))));
+            new PopupMenu.Item(Component.translatable("jeh.menu.confirm_delete"), 0xFFFF3030, () -> delete(entry))));
     }
 
     private void toggle(ListEHidingEntry entry)
@@ -533,7 +547,7 @@ public final class HidingListScreen extends Screen
         originalTargetText = id;
         originalKindIndex = kindIndex;
         refreshSuggestions(id);
-        setStatus(TARGET_HINT);
+        setStatus(Component.translatable("jeh.status.target_hint"));
     }
 
     private int kindIndexFor(String kindKey)
@@ -742,15 +756,16 @@ public final class HidingListScreen extends Screen
             IntentTarget parsed = parseTarget(id, autocomplete.getKindKey());
             if (parsed == null)
             {
-                setStatus("Unknown target: " + id);
+                setStatus(Component.translatable("jeh.status.unknown_target", id));
                 return;
             }
             replace(entry, new ListEHidingEntry(parsed, entry.enabled(), entry.note(), entry.priority()));
             if (parsed instanceof IntentTarget.Pattern)
             {
                 int count = Adapters.active().matches(parsed, MATCH_CAP).size();
-                setStatus(count == 0 ? "Pattern matches nothing"
-                    : "Pattern matches " + (count >= MATCH_CAP ? MATCH_CAP + "+" : String.valueOf(count)));
+                setStatus(count == 0
+                    ? Component.translatable("jeh.status.pattern_none")
+                    : Component.translatable("jeh.status.pattern_matches", count >= MATCH_CAP ? MATCH_CAP + "+" : String.valueOf(count)));
             }
         }
         else if (column == NOTE_COLUMN)
@@ -769,7 +784,7 @@ public final class HidingListScreen extends Screen
             }
             catch (NumberFormatException e)
             {
-                setStatus("Invalid priority: " + text);
+                setStatus(Component.translatable("jeh.status.invalid_priority", text));
                 return;
             }
             if (priority != entry.priority())
@@ -807,7 +822,7 @@ public final class HidingListScreen extends Screen
         return Adapters.active().ofKind(kindKey, id);
     }
 
-    private void setStatus(String message)
+    private void setStatus(Component message)
     {
         this.status = message;
         this.statusUntil = System.currentTimeMillis() + 5000L;
@@ -841,7 +856,11 @@ public final class HidingListScreen extends Screen
 
         guiGraphics.drawString(this.font, this.title, MARGIN, 8, 0xFFFFFFFF, true);
         int selectedCount = list.getSelection().size();
-        String summary = listSize() + " entries" + (selectedCount > 0 ? ", " + selectedCount + " selected" : "");
+        Component summary = Component.translatable("jeh.summary.entries", listSize());
+        if (selectedCount > 0)
+        {
+            summary = Component.empty().append(summary).append(Component.translatable("jeh.summary.selected", selectedCount));
+        }
         guiGraphics.drawString(this.font, summary, MARGIN, 19, 0xFFA0A0A0, false);
         if (System.currentTimeMillis() < this.statusUntil)
         {
@@ -903,10 +922,10 @@ public final class HidingListScreen extends Screen
         if (intent != null)
         {
             this.setTooltipForNextRenderPass(List.of(
-                Component.literal("intent: " + TargetKeys.label(hovered.target())),
-                Component.literal("source: " + intent.source().id()),
-                Component.literal("kind: " + intent.kind().name()),
-                Component.literal("applied: " + hovered.enabled())
+                Component.translatable("jeh.tip.intent", TargetKeys.label(hovered.target())),
+                Component.translatable("jeh.tip.source", intent.source().id()),
+                Component.translatable("jeh.tip.kind", intent.kind().name()),
+                Component.translatable("jeh.tip.applied", yesNo(hovered.enabled()))
             ).stream().map(Component::getVisualOrderText).toList());
             return;
         }
@@ -919,11 +938,16 @@ public final class HidingListScreen extends Screen
         }
 
         this.setTooltipForNextRenderPass(List.of(
-            Component.literal("target: " + TargetKeys.label(hovered.target())),
-            Component.literal("priority: " + hovered.priority()),
-            Component.literal("enabled: " + hovered.enabled()),
-            Component.literal("note: " + hovered.note())
+            Component.translatable("jeh.tip.target", TargetKeys.label(hovered.target())),
+            Component.translatable("jeh.tip.priority", hovered.priority()),
+            Component.translatable("jeh.tip.enabled", yesNo(hovered.enabled())),
+            Component.translatable("jeh.tip.note", hovered.note())
         ).stream().map(Component::getVisualOrderText).toList());
+    }
+
+    private static String yesNo(boolean value)
+    {
+        return Component.translatable(value ? "jeh.value.true" : "jeh.value.false").getString();
     }
 
     @Override

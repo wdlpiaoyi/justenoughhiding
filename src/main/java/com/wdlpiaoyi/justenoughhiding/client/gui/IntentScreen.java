@@ -30,7 +30,6 @@ public final class IntentScreen extends Screen
     private static final int MARGIN = 8;
     private static final int ROW_HEIGHT = 20;
     private static final int TOP = 32;
-    private static final String SEARCH_HINT = "Search (kind / source / target)";
 
     private final List<Intent> all = new ArrayList<>();
     private final List<Intent> view = new ArrayList<>();
@@ -49,14 +48,14 @@ public final class IntentScreen extends Screen
     private boolean descending;
     private RowList<Intent> list;
 
-    private String status = "";
+    private Component status = Component.empty();
     private long statusUntil;
     private int lastMouseX;
     private int lastMouseY;
 
     public IntentScreen()
     {
-        super(Component.literal("Just Enough Hiding - Intents"));
+        super(Component.translatable("jeh.screen.intents"));
     }
 
     @Override
@@ -69,62 +68,66 @@ public final class IntentScreen extends Screen
         IntentFeed.clear();
 
         int searchWidth = Math.min(220, Math.max(120, this.width / 3));
-        search = new EditBox(this.font, MARGIN, TOP, searchWidth, ROW_HEIGHT, Component.literal("Search"));
+        search = new EditBox(this.font, MARGIN, TOP, searchWidth, ROW_HEIGHT, Component.translatable("jeh.search.default"));
         search.setResponder(value -> apply());
         addRenderableWidget(search);
 
         int buttonX = search.getX() + search.getWidth() + 6;
 
-        refreshButton = Button.builder(Component.literal("Refresh"), b -> refresh())
-            .tooltip(Tooltip.create(Component.literal("Re-read the recorded intents")))
+        refreshButton = Button.builder(Component.translatable("jeh.button.refresh"), b -> refresh())
+            .tooltip(Tooltip.create(Component.translatable("jeh.tooltip.refresh_intents")))
             .bounds(buttonX, TOP, 60, ROW_HEIGHT).build();
         addRenderableWidget(refreshButton);
         buttonX += 64;
 
-        exportViewButton = Button.builder(Component.literal("Export View"), b -> exportView())
-            .tooltip(Tooltip.create(Component.literal("Write the currently filtered and sorted rows to logs/justenoughhiding/intents.txt")))
+        exportViewButton = Button.builder(Component.translatable("jeh.button.export_view"), b -> exportView())
+            .tooltip(Tooltip.create(Component.translatable("jeh.tooltip.export_view")))
             .bounds(buttonX, TOP, 90, ROW_HEIGHT).build();
         addRenderableWidget(exportViewButton);
         buttonX += 94;
 
-        exportAllButton = Button.builder(Component.literal("Export All"), b -> exportAll())
-            .tooltip(Tooltip.create(Component.literal("Write all recorded intents (sorted) to logs/justenoughhiding/intents.txt")))
+        exportAllButton = Button.builder(Component.translatable("jeh.button.export_all"), b -> exportAll())
+            .tooltip(Tooltip.create(Component.translatable("jeh.tooltip.export_all")))
             .bounds(buttonX, TOP, 84, ROW_HEIGHT).build();
         addRenderableWidget(exportAllButton);
         buttonX += 88;
 
-        copyUidButton = Button.builder(Component.literal("Copy UID"), b -> copy(true))
-            .tooltip(Tooltip.create(Component.literal("Copy the selected row's ingredient uid to the clipboard")))
+        copyUidButton = Button.builder(Component.translatable("jeh.button.copy_uid"), b -> copy(true))
+            .tooltip(Tooltip.create(Component.translatable("jeh.tooltip.copy_uid")))
             .bounds(buttonX, TOP, 74, ROW_HEIGHT).build();
         addRenderableWidget(copyUidButton);
         buttonX += 78;
 
-        copyLineButton = Button.builder(Component.literal("Copy Line"), b -> copy(false))
-            .tooltip(Tooltip.create(Component.literal("Copy the selected row as a text line to the clipboard")))
+        copyLineButton = Button.builder(Component.translatable("jeh.button.copy_line"), b -> copy(false))
+            .tooltip(Tooltip.create(Component.translatable("jeh.tooltip.copy_line")))
             .bounds(buttonX, TOP, 78, ROW_HEIGHT).build();
         addRenderableWidget(copyLineButton);
 
         int dropdownY = TOP + ROW_HEIGHT + 4;
         List<String> sortOptions = JehConfig.sortModes();
+        Function<String, String> allLabeler = value -> "All".equals(value)
+            ? Component.translatable("jeh.filter.all").getString() : value;
         sourceDropdown = new Dropdown(this.font, MARGIN, dropdownY, 150, ROW_HEIGHT,
             optionList(intent -> intent.source().id()), "All", value -> apply())
-            .tooltip(Component.literal("Filter by source: a mod id, \"JEI edit mode\", \"tag\", or \"server\""));
+            .tooltip(Component.translatable("jeh.tooltip.filter_source"))
+            .labels(allLabeler);
         kindDropdown = new Dropdown(this.font, MARGIN + 156, dropdownY, 160, ROW_HEIGHT,
             optionList(intent -> intent.kind().name()), "All", value -> apply())
-            .tooltip(Component.literal("Filter by intent kind (REMOVED, HIDDEN, ABSENT_FROM_JEI, ...)"));
+            .tooltip(Component.translatable("jeh.tooltip.filter_kind"))
+            .labels(allLabeler);
         sortDropdown = new Dropdown(this.font, MARGIN + 322, dropdownY, 170, ROW_HEIGHT,
             sortOptions, sortOptions.get(0), value -> apply())
-            .tooltip(Component.literal("Sort order. Add your own in config/jeh/client.toml under [intentView] sortModes"));
+            .tooltip(Component.translatable("jeh.tooltip.sort"));
         dropdowns.add(sourceDropdown);
         dropdowns.add(kindDropdown);
         dropdowns.add(sortDropdown);
 
-        Button closeButton = Button.builder(Component.literal("Close"), b -> onClose())
+        Button closeButton = Button.builder(Component.translatable("jeh.button.close"), b -> onClose())
             .bounds(sortDropdown.getX() + 176 + 78, dropdownY, 54, ROW_HEIGHT).build();
         addRenderableWidget(closeButton);
 
-        descButton = Button.builder(Component.literal("Desc: off"), b -> toggleDescending())
-            .tooltip(Tooltip.create(Component.literal("Reverse the sort order")))
+        descButton = Button.builder(descMessage(), b -> toggleDescending())
+            .tooltip(Tooltip.create(Component.translatable("jeh.tooltip.desc")))
             .bounds(sortDropdown.getX() + 176, dropdownY, 74, ROW_HEIGHT).build();
         addRenderableWidget(descButton);
 
@@ -202,8 +205,14 @@ public final class IntentScreen extends Screen
     private void toggleDescending()
     {
         descending = !descending;
-        descButton.setMessage(Component.literal("Desc: " + (descending ? "on" : "off")));
+        descButton.setMessage(descMessage());
         apply();
+    }
+
+    private Component descMessage()
+    {
+        return Component.translatable("jeh.button.desc",
+            Component.translatable(descending ? "jeh.value.on" : "jeh.value.off"));
     }
 
     private void refresh()
@@ -214,7 +223,7 @@ public final class IntentScreen extends Screen
         sourceDropdown.setOptions(optionList(intent -> intent.source().id()));
         kindDropdown.setOptions(optionList(intent -> intent.kind().name()));
         apply();
-        setStatus("Refreshed");
+        setStatus(Component.translatable("jeh.status.refreshed"));
     }
 
     private void updateButtons()
@@ -233,7 +242,9 @@ public final class IntentScreen extends Screen
     private void exportView()
     {
         Path path = IntentExporter.export(view);
-        setStatus(path == null ? "Export failed" : "Exported " + view.size() + " -> " + path);
+        setStatus(path == null
+            ? Component.translatable("jeh.status.export_failed")
+            : Component.translatable("jeh.status.exported", view.size(), path.toString()));
     }
 
     private void exportAll()
@@ -241,7 +252,9 @@ public final class IntentScreen extends Screen
         List<Intent> sorted = new ArrayList<>(all);
         sorted.sort(comparator());
         Path path = IntentExporter.export(sorted);
-        setStatus(path == null ? "Export failed" : "Exported " + sorted.size() + " -> " + path);
+        setStatus(path == null
+            ? Component.translatable("jeh.status.export_failed")
+            : Component.translatable("jeh.status.exported", sorted.size(), path.toString()));
     }
 
     private void copy(boolean uidOnly)
@@ -253,10 +266,10 @@ public final class IntentScreen extends Screen
         }
         String text = uidOnly ? selected.target().copyText() : IntentFormat.line(selected);
         Minecraft.getInstance().keyboardHandler.setClipboard(text);
-        setStatus("Copied: " + text);
+        setStatus(Component.translatable("jeh.status.copied", text));
     }
 
-    private void setStatus(String message)
+    private void setStatus(Component message)
     {
         this.status = message;
         this.statusUntil = System.currentTimeMillis() + 5000L;
@@ -309,25 +322,27 @@ public final class IntentScreen extends Screen
         {
             return;
         }
-        guiGraphics.drawString(this.font, SEARCH_HINT, search.getX() + 4, search.getY() + (search.getHeight() - 8) / 2, 0xFF808080, false);
+        guiGraphics.drawString(this.font, Component.translatable("jeh.search.intents_hint"), search.getX() + 4, search.getY() + (search.getHeight() - 8) / 2, 0xFF808080, false);
     }
 
     private void drawHeader(GuiGraphics guiGraphics)
     {
         guiGraphics.drawString(this.font, this.title, MARGIN, 8, 0xFFFFFFFF, true);
 
-        String summary = all.size() + " entries, " + view.size() + " shown, "
-            + IntentRegistry.query().currentlyHidden().size() + " hidden";
+        Component summary = Component.translatable("jeh.summary.intents",
+            all.size(), view.size(), IntentRegistry.query().currentlyHidden().size());
         guiGraphics.drawString(this.font, summary, MARGIN, 19, 0xFFA0A0A0, false);
 
         int pending = IntentFeed.pending();
         if (refreshButton != null)
         {
-            refreshButton.setMessage(Component.literal(pending > 0 ? "Refresh (+" + pending + ")" : "Refresh"));
+            refreshButton.setMessage(pending > 0
+                ? Component.translatable("jeh.button.refresh_pending", pending)
+                : Component.translatable("jeh.button.refresh"));
         }
         if (pending > 0)
         {
-            String badge = "+" + pending + " new";
+            Component badge = Component.translatable("jeh.badge.new", pending);
             guiGraphics.drawString(this.font, badge, this.width - MARGIN - this.font.width(badge), 19, 0xFFFFB060, false);
         }
 
@@ -368,9 +383,9 @@ public final class IntentScreen extends Screen
 
         this.setTooltipForNextRenderPass(List.of(
             Component.literal(hovered.kind().name()),
-            Component.literal("source: " + hovered.source().id()),
-            Component.literal("target: " + hovered.target().describe()),
-            Component.literal("count: " + hovered.count())
+            Component.translatable("jeh.tip.source", hovered.source().id()),
+            Component.translatable("jeh.tip.target", hovered.target().describe()),
+            Component.translatable("jeh.tip.count", hovered.count())
         ).stream().map(Component::getVisualOrderText).toList());
     }
 
@@ -470,7 +485,7 @@ public final class IntentScreen extends Screen
         {
             return false;
         }
-        setStatus("Bookmarked: " + hovered.target().describe());
+        setStatus(Component.translatable("jeh.status.bookmarked", hovered.target().describe()));
         return true;
     }
 

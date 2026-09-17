@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.network.chat.Component;
 
 import java.util.List;
 
@@ -70,16 +71,16 @@ public final class PopupMenu implements Renderable
         guiGraphics.pose().popPose();
     }
 
-    private String fit(String text)
+    private String fit(Component text)
     {
         if (text == null)
         {
             return "";
         }
-        return font.plainSubstrByWidth(text, width - 8);
+        return font.plainSubstrByWidth(text.getString(), width - 8);
     }
 
-    public record Item(String label, int color, Runnable action)
+    public record Item(Component label, int color, Runnable action)
     {
     }
 }

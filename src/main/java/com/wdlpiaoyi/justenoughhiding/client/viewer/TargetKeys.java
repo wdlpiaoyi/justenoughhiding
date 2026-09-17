@@ -1,6 +1,9 @@
 package com.wdlpiaoyi.justenoughhiding.client.viewer;
 
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
+import net.minecraft.network.chat.Component;
+
+import java.util.Locale;
 
 /** Shared helpers for target ids, kind keys and wildcard/regex detection. */
 public final class TargetKeys
@@ -87,24 +90,24 @@ public final class TargetKeys
     {
         if (typeUid == null || typeUid.isBlank())
         {
-            return "Ingredient";
+            return Component.translatable("jeh.kind.ingredient").getString();
         }
-        String lower = typeUid.toLowerCase(java.util.Locale.ROOT);
+        String lower = typeUid.toLowerCase(Locale.ROOT);
         if (lower.contains("item"))
         {
-            return "Item";
+            return Component.translatable("jeh.kind.item").getString();
         }
         if (lower.contains("fluid"))
         {
-            return "Fluid";
+            return Component.translatable("jeh.kind.fluid").getString();
         }
         if (lower.contains("chemical"))
         {
-            return "Chemical";
+            return Component.translatable("jeh.kind.chemical").getString();
         }
         if (lower.contains("energy"))
         {
-            return "Energy";
+            return Component.translatable("jeh.kind.energy").getString();
         }
         String path = lower;
         int colon = path.indexOf(':');
@@ -133,7 +136,7 @@ public final class TargetKeys
     {
         if (scope == null || scope.isBlank())
         {
-            return "Any";
+            return Component.translatable("jeh.kind.any").getString();
         }
         if (scope.startsWith("ingredient|"))
         {
@@ -141,9 +144,9 @@ public final class TargetKeys
         }
         return switch (scope)
         {
-            case "recipe" -> "Recipe";
-            case "recipe_category" -> "Category";
-            case "tag" -> "Tag";
+            case "recipe" -> Component.translatable("jeh.kind.recipe").getString();
+            case "recipe_category" -> Component.translatable("jeh.kind.category").getString();
+            case "tag" -> Component.translatable("jeh.kind.tag").getString();
             default -> scope;
         };
     }

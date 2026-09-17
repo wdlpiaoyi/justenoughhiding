@@ -9,6 +9,7 @@ import net.minecraft.network.chat.Component;
 
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public final class Dropdown implements Renderable
 {
@@ -28,6 +29,7 @@ public final class Dropdown implements Renderable
     private boolean open;
     private int scroll;
     private Component tooltip;
+    private Function<String, String> labeler = Function.identity();
 
     public Dropdown(Font font, int x, int y, int width, int height, List<String> options, String initial, Consumer<String> onSelect)
     {
@@ -44,6 +46,13 @@ public final class Dropdown implements Renderable
     public Dropdown tooltip(Component tooltip)
     {
         this.tooltip = tooltip;
+        return this;
+    }
+
+    /** Maps an option value to its display text; the value itself is unchanged for logic. */
+    public Dropdown labels(Function<String, String> labeler)
+    {
+        this.labeler = labeler == null ? Function.identity() : labeler;
         return this;
     }
 
@@ -116,7 +125,7 @@ public final class Dropdown implements Renderable
     {
         boolean hovered = isOver(mouseX, mouseY, x, y, width, height);
         guiGraphics.fill(x, y, x + width, y + height, hovered ? 0xFF4A4A8A : 0xC0202040);
-        guiGraphics.drawString(font, fit(value), x + 4, y + (height - 8) / 2, 0xFFFFFFFF, false);
+        guiGraphics.drawString(font, fit(labeler.apply(value)), x + 4, y + (height - 8) / 2, 0xFFFFFFFF, false);
 
         if (!open)
         {
@@ -145,7 +154,7 @@ public final class Dropdown implements Renderable
             {
                 guiGraphics.fill(x + 1, optionY, x + width - 1, optionY + OPTION_HEIGHT, 0xFF3050A0);
             }
-            guiGraphics.drawString(font, fit(options.get(index)), x + 4, optionY + 2, 0xFFFFFFFF, false);
+            guiGraphics.drawString(font, fit(labeler.apply(options.get(index))), x + 4, optionY + 2, 0xFFFFFFFF, false);
         }
 
         drawPopupScrollbar(guiGraphics, popupTop, visible);

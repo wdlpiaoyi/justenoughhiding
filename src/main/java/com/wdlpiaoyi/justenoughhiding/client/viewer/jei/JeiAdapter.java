@@ -26,6 +26,7 @@ import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.api.runtime.IJeiKeyMapping;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -68,7 +69,7 @@ public final class JeiAdapter implements ViewerAdapter
     public List<TargetKind> targetKinds()
     {
         List<TargetKind> kinds = new ArrayList<>();
-        kinds.add(new TargetKind("", "Auto"));
+        kinds.add(new TargetKind("", Component.translatable("jeh.kind.auto").getString()));
         IJeiRuntime current = this.runtime;
         if (current != null)
         {
@@ -87,9 +88,9 @@ public final class JeiAdapter implements ViewerAdapter
             {
             }
         }
-        kinds.add(new TargetKind("recipe", "Recipe"));
-        kinds.add(new TargetKind("recipe_category", "Category"));
-        kinds.add(new TargetKind("tag", "Tag"));
+        kinds.add(new TargetKind("recipe", Component.translatable("jeh.kind.recipe").getString()));
+        kinds.add(new TargetKind("recipe_category", Component.translatable("jeh.kind.category").getString()));
+        kinds.add(new TargetKind("tag", Component.translatable("jeh.kind.tag").getString()));
         return kinds;
     }
 
