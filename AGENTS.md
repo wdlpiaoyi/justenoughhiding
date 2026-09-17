@@ -67,7 +67,7 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
 ## JEI gotchas
 - JEI caches its ingredient list; `hideIngredients`/`unhideIngredients` alone do not refresh it.
   JEHide asks the internal (`mezz.jei.gui.ingredients.IngredientFilter`) `updateHidden()`/
-  `invalidateCache()` to recompute — the instance is captured by `mixin/jei/IngredientFilterApiMixin`
+  `invalidateCache()` to recompute — the instance is captured by `mixin/jei/IngredientFilterMixin`
   because deep reflection on the private `IngredientFilterApi.ingredientFilter` field is blocked by
   the module system. Only called when something actually changed; never force a resource reload.
 - Only `VanillaTypes.ITEM_STACK` and (via Forge) `ForgeTypes.FLUID_STACK` exist; there is no
@@ -86,6 +86,11 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
 
 ## Testing
 - Build, then `.\gradlew.bat runData` as a smoke test.
+- Deliver temporary test files (test packs, `listehiding.json`, etc.) in `build/libs/` — the same
+  folder as the built mod jar.
+- EMI data (`emi:index_stacks`, `recipe/filters`, `aliases`, ...) is loaded as **client resources**
+  from `assets/emi/...` (see EMI's own `assets/emi/aliases/emi.json`), so test files go in a
+  **resource pack** (`<instance>/resourcepacks/`), not a `data/` datapack.
 - Hand-write test data to `build/libs/listehiding.json`, then copy it to
   `config/jeh/listehiding.json` in the user's test instance (a client profile with JEI installed).
 - In-game entrypoints: `/jeh intents`, `/jeh list`; keybinds default unbound.
