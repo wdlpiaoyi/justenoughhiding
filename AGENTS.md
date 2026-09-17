@@ -66,8 +66,10 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
 
 ## JEI gotchas
 - JEI caches its ingredient list; `hideIngredients`/`unhideIngredients` alone do not refresh it.
-  After applying, force `IngredientFilter.updateHidden()` (reached via reflection; the internal
-  field is `IngredientFilterApi.ingredientFilter`). Fallback: `Minecraft.reloadResourcePacks()`.
+  JEHide asks the internal (`mezz.jei.gui.ingredients.IngredientFilter`) `updateHidden()`/
+  `invalidateCache()` to recompute — the instance is captured by `mixin/jei/IngredientFilterApiMixin`
+  because deep reflection on the private `IngredientFilterApi.ingredientFilter` field is blocked by
+  the module system. Only called when something actually changed; never force a resource reload.
 - Only `VanillaTypes.ITEM_STACK` and (via Forge) `ForgeTypes.FLUID_STACK` exist; there is no
   energy ingredient type. Enumerate dynamically via `getRegisteredIngredientTypes()`.
 

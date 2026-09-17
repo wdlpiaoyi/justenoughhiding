@@ -18,15 +18,12 @@ import mezz.jei.api.ingredients.subtypes.UidContext;
 import mezz.jei.api.recipe.IRecipeManager;
 import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.category.IRecipeCategory;
-import mezz.jei.api.runtime.IIngredientFilter;
 import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.api.runtime.IIngredientVisibility;
 import mezz.jei.api.runtime.IJeiRuntime;
-import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.Recipe;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -64,9 +61,20 @@ public final class JeiHide
     private static volatile boolean lastEnabled = true;
     private static volatile boolean lastApplyIntents = true;
     private static boolean listenerRegistered;
+    private static volatile Object ingredientFilter;
 
     private JeiHide()
     {
+    }
+
+    /**
+     * Called by the JEI mixin that captures JEI's internal {@code IngredientFilter} when its API
+     * wrapper is constructed. Reaching the filter directly avoids deep reflection on a private
+     * field, which is blocked by the module system on modern Java.
+     */
+    public static void captureIngredientFilter(Object filter)
+    {
+        ingredientFilter = filter;
     }
 
     public static synchronized void apply(IJeiRuntime runtime)
@@ -77,18 +85,22 @@ public final class JeiHide
         }
         currentRuntime = runtime;
         ensureListener();
-        JeiIntentRecorder.runSuppressed(() -> applyInternal(runtime));
-        refreshIngredientFilter(runtime);
+        int[] changed = {0};
+        JeiIntentRecorder.runSuppressed(() -> changed[0] = applyInternal(runtime));
+        if (changed[0] > 0)
+        {
+            refreshIngredientFilter(runtime);
+        }
     }
 
-    private static void applyInternal(IJeiRuntime runtime)
+    private static int applyInternal(IJeiRuntime runtime)
     {
-        clearPrevious(runtime);
+        int changed = clearPrevious(runtime);
 
         if (!JehConfig.jehideEnabled())
         {
             JustEnoughHiding.LOGGER.info("[JEH] jehide: disabled, cleared previous hides");
-            return;
+            return changed;
         }
 
         List<IntentTarget> targets = new ArrayList<>();
@@ -130,6 +142,7 @@ public final class JeiHide
         JustEnoughHiding.LOGGER.info(
             "[JEH] jehide: hid {} ingredients, {} recipes, {} categories (from {} list, {} intent targets)",
             ingredients, recipes, categories, listCount, intentCount);
+        return changed + ingredients + recipes + categories;
     }
 
     private static synchronized void ensureListener()
@@ -191,46 +204,21 @@ public final class JeiHide
     /**
      * JEI caches its ingredient list. {@code hideIngredients}/{@code unhideIngredients} do not
      * always re-evaluate it, so a deleted/disabled entry would stay hidden until a manual reload.
-     * Reach the internal filter and ask it to recompute hidden state (it calls isIngredientVisible,
-     * which our visibility mixin controls) and drop its cache.
+     * Ask the internal filter (captured by a mixin, so no deep reflection is needed) to recompute
+     * hidden state and drop its cache. Only called when something actually changed; if it cannot be
+     * reached we do nothing rather than force a full resource reload.
      */
     private static void refreshIngredientFilter(IJeiRuntime runtime)
     {
         try
         {
-            IIngredientFilter api = runtime.getIngredientFilter();
-            Object internal = api;
-            try
+            Object internal = ingredientFilter;
+            if (internal == null)
             {
-                Field field = api.getClass().getDeclaredField("ingredientFilter");
-                field.setAccessible(true);
-                internal = field.get(api);
+                internal = runtime.getIngredientFilter();
             }
-            catch (Throwable ignored)
-            {
-            }
-
-            boolean refreshed = invokeNoArg(internal, "updateHidden");
-            refreshed |= invokeNoArg(internal, "invalidateCache");
-            if (!refreshed)
-            {
-                reloadClientResources();
-            }
-        }
-        catch (Throwable ignored)
-        {
-        }
-    }
-
-    private static void reloadClientResources()
-    {
-        try
-        {
-            Minecraft minecraft = Minecraft.getInstance();
-            if (minecraft != null)
-            {
-                minecraft.reloadResourcePacks();
-            }
+            invokeNoArg(internal, "updateHidden");
+            invokeNoArg(internal, "invalidateCache");
         }
         catch (Throwable ignored)
         {
@@ -290,9 +278,13 @@ public final class JeiHide
         }
     }
 
-    private static void clearPrevious(IJeiRuntime runtime)
+    private static int clearPrevious(IJeiRuntime runtime)
     {
-        if (previousRuntime == runtime && !HIDDEN_INGREDIENT_OBJECTS.isEmpty())
+        boolean hadHidden = !HIDDEN_INGREDIENT_OBJECTS.isEmpty()
+            || !HIDDEN_RECIPE_OBJECTS.isEmpty()
+            || !HIDDEN_CATEGORY_OBJECTS.isEmpty();
+        int cleared = countHidden();
+        if (previousRuntime == runtime && hadHidden)
         {
             try
             {
@@ -341,6 +333,21 @@ public final class JeiHide
         }
         previousRuntime = runtime;
         clearState();
+        return cleared;
+    }
+
+    private static int countHidden()
+    {
+        int count = HIDDEN_CATEGORY_OBJECTS.size();
+        for (List<Object> objects : HIDDEN_INGREDIENT_OBJECTS.values())
+        {
+            count += objects.size();
+        }
+        for (List<Object> objects : HIDDEN_RECIPE_OBJECTS.values())
+        {
+            count += objects.size();
+        }
+        return count;
     }
 
     private static void clearState()

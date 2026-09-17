@@ -8,6 +8,7 @@
   "client": [
     "jei.RevealMixin",
     "jei.ClientToggleStateMixin",
+    "jei.IngredientFilterApiMixin",
     "emi.EmiStackListRevealMixin",
     "emi.EmiStackListBakeRevealMixin",
     "emi.EmiRecipesBakeRevealMixin",
