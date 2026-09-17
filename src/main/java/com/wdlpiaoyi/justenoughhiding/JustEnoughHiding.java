@@ -2,6 +2,7 @@ package com.wdlpiaoyi.justenoughhiding;
 
 import com.mojang.logging.LogUtils;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
+import com.wdlpiaoyi.justenoughhiding.listehiding.ListEHidingStore;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
@@ -20,6 +21,7 @@ public final class JustEnoughHiding
         IEventBus modEventBus = context.getModEventBus();
 
         context.registerConfig(ModConfig.Type.CLIENT, JehConfig.SPEC, "jeh/client.toml");
+        ListEHidingStore.ensureDefaults();
         modEventBus.addListener((ModConfigEvent.Loading event) -> onConfigChanged(event));
         modEventBus.addListener((ModConfigEvent.Reloading event) -> onConfigChanged(event));
     }

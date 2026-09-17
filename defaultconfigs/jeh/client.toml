@@ -1,0 +1,28 @@
+# Just Enough Hiding
+# Settings file: config/jeh/client.toml
+# Template: copy to <instance>/defaultconfigs/jeh/client.toml to seed new instances/packs.
+
+[intentRecording]
+    # Record what other mods (and the recipe viewer itself, JEI/EMI) do to hide or show
+    # ingredients. Turn this off to disable all recording.
+    enabled = true
+
+[reveal]
+    # Bypass hiding when the recipe viewer starts (JEI and/or EMI):
+    # ingredients hidden by tags, edit mode or the blacklist are shown again;
+    # ingredients removed at runtime are restored (any ingredient type);
+    # hidden recipes, recipe categories and EMI data-pack hides are revealed.
+    enabled = true
+
+[jehide]
+    # Read the enabled entries of config/jeh/listehiding.json and hide the matching
+    # ingredients, recipes and recipe categories from JEI/EMI (runtime visibility only,
+    # never written to the viewer's config files). Takes precedence over reveal.
+    enabled = true
+    # Also treat recorded hide-intents as hide rules (everything the reveal module brings
+    # back is re-hidden from one place).
+    applyIntents = true
+
+[intentView]
+    sortModes = ["source,kind,target", "kind,source,target", "target", "count:desc", "sequence"]
+    bookmarkTarget = "ICON"

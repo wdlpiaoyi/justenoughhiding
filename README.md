@@ -1,8 +1,8 @@
 # Just Enough Hiding (JEH)
 
-一个 Minecraft Forge 1.20.1 的**客户端**模组：记录「是谁、出于什么原因隐藏了 JEI 的内容」，把被隐藏的东西揭示出来，并允许你用一份本地列表把内容从 JEI 里隐藏掉——方便整合包作者统一管理 recipe viewer 内容的隐藏情况。
+一个 Minecraft Forge 1.20.1 的**客户端**模组：记录「是谁、出于什么原因隐藏了 JEI / EMI 的内容」，把被隐藏的东西揭示出来，并允许你用一份本地列表把内容从 recipe viewer 里隐藏掉——方便整合包作者统一管理 recipe viewer 内容的隐藏情况。
 
-- 依赖：[JEI](https://www.curseforge.com/minecraft/mc-mods/jei)（可选，未安装时模组不做事）
+- Recipe viewer（可选项，二选一）：[JEI](https://www.curseforge.com/minecraft/mc-mods/jei) 或 [EMI](https://www.curseforge.com/minecraft/mc-mods/emi)。两者都装时 **EMI 优先**（JEH 的界面/图标用 EMI，同时 JEI 侧的揭示与 intent 记录照常运行）；都不装时模组不做事。
 - 可选联动：[KubeJS](https://kubejs.com/)（用脚本读写隐藏列表）
 - 许可：MIT
 
@@ -14,13 +14,25 @@
 - **类型与匹配**：物品、流体、化学物等所有 JEI ingredient 类型；配方；配方类别；标签；以及通配符 / 正则。
 - **统一管理**：JEHide 同时也会读取记录下来的 hide 类 intent，等效于「先揭示、再按列表 + intent 重新隐藏」。
 
+## EMI 适配
+
+- **界面/图标**：EMI 作为 viewer 时，intent 查看器与隐藏列表使用 EMI 的索引与图标。JEI 生成的条目（type uid 拼写不同）也能正常显示图标。
+- **揭示**：EMI 启动/重载时，被标签（`c:hidden_from_recipe_viewers`）、插件移除（`removeEmiStacks`/`removeRecipes`）、EMI 编辑模式、以及数据包 `assets/emi/index/stacks` 与 `assets/emi/recipe/filters` 隐藏的内容都会被揭示（受 `[reveal] enabled` 控制）。
+- **隐藏**：`[jehide]` 的列表 + intent 以 EMI 谓词形式在 bake 时生效，优先于揭示。
+- **记录**：EMI 插件移除（来源=调用 mod）、EMI 编辑模式（来源 `EMI edit mode`）、`emi:index_stacks` / `emi:recipe_filters` 数据（来源=提供该文件的**资源包**）。
+- **测试/编辑 EMI 数据**：这些文件是**客户端资源** `assets/emi/...`。改完后请用 **F3+T**（重载资源）或切换资源包使其生效——`/reload` 只重载服务端数据（tags/recipes），不会重载 `assets/`。
+- **已知限制**：模组自带的 EMI 数据来源显示为 `mod_resources`（Forge 合并所致，无法细分到具体 modid）；EMI 没有类别隐藏 API（`recipe_category` 只能隐藏其配方）；EMI 侧不支持 JEI 书签键。
+
 ## 配置文件（`config/jeh/`）
 
 | 文件 | 说明 |
 | --- | --- |
-| `client.toml` | 模组设置（见下） |
-| `listehiding.json` | 隐藏列表，**需要手动编写/编辑**，模组不会自动生成 |
+| `client.toml` | 模组设置（见下），首次运行由 Forge 生成 |
+| `listehiding.json` | 隐藏列表，**首次运行自动生成空列表**，用 GUI 或外部编辑 |
+| `listehiding.example.json` | 首次运行生成的示例（各项 `enabled=false`，仅作参考） |
 | `intentoverrides.json` | 每条 intent 是否参与隐藏（由 GUI 里 Enable/Disable 写入） |
+
+> 整合包作者可把仓库里的 `defaultconfigs/jeh/`（`client.toml` + `listehiding.example.json`）放到实例的 `defaultconfigs/jeh/`，Forge 会在新实例首次运行时套用（`client.toml`）。
 
 `client.toml` 主要项：
 
@@ -133,4 +145,4 @@ JEH.apply()
 .\gradlew.bat runData      # 冒烟测试
 ```
 
-可选参数：`-PnoJei`、`-PnoKubeJS` 跳过对应依赖。
+可选参数：`-PnoJei`、`-PnoKubeJS`、`-PnoEmi` 跳过对应依赖。

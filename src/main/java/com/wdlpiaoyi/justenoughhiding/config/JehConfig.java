@@ -41,13 +41,13 @@ public final class JehConfig
     {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
-        builder.comment("Just Enough Hiding").push("intentRecording");
+        builder.comment("Just Enough Hiding", "Settings file: config/jeh/client.toml").push("intentRecording");
         INTENT_RECORDING_ENABLED = builder
             .comment(
-                "Record what other mods (and JEI itself) do to hide or show ingredients:",
-                "runtime removal/addition, visibility changes, JEI edit mode, hidden tags,",
+                "Record what other mods (and the recipe viewer itself, JEI/EMI) do to hide or show",
+                "ingredients: runtime removal/addition, visibility changes, edit mode, hidden tags,",
                 "server-side absence, and recipe/category hiding.",
-                "Dev builds default to true. Turn this off to disable all recording."
+                "Turn this off to disable all recording."
             )
             .define("enabled", true);
         builder.pop();
@@ -55,22 +55,23 @@ public final class JehConfig
         builder.comment("Reveal module").push("reveal");
         REVEAL_ENABLED = builder
             .comment(
-                "Bypass hiding when JEI starts:",
-                "ingredients hidden by tags, JEI edit mode or the blacklist are shown again;",
+                "Bypass hiding when the recipe viewer starts (JEI and/or EMI):",
+                "ingredients hidden by tags, edit mode or the blacklist are shown again;",
                 "ingredients removed at runtime are restored (any ingredient type);",
-                "hidden recipes and recipe categories are unhidden.",
+                "hidden recipes, recipe categories and EMI data-pack hides are revealed.",
                 "Toggling this at runtime does not undo reveals that were already applied."
             )
             .define("enabled", true);
         builder.pop();
 
-        builder.comment("JEHide: hide ListEHiding entries from JEI").push("jehide");
+        builder.comment("JEHide: hide ListEHiding entries from the recipe viewer").push("jehide");
         JEHIDE_ENABLED = builder
             .comment(
                 "Read the enabled entries of config/jeh/listehiding.json and hide the matching",
-                "ingredients, recipes and recipe categories from JEI (runtime visibility only,",
-                "never written to JEI's config files). Re-applied when JEI starts, when the list",
-                "changes, or via /jeh apply. Takes precedence over the reveal module for its targets."
+                "ingredients, recipes and recipe categories from JEI/EMI (runtime visibility only,",
+                "never written to the viewer's config files). Re-applied when the viewer reloads,",
+                "when the list changes, or on resource reload.",
+                "Takes precedence over the reveal module for its targets."
             )
             .define("enabled", true);
         JEHIDE_APPLY_INTENTS = builder

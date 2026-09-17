@@ -20,11 +20,27 @@ import java.util.List;
  * Loads and saves {@link ListEHidingEntry} entries as JSON at
  * {@code config/jeh/listehiding.json}.
  * <p>
- * The mod never generates data by itself; the file is edited externally.
+ * On first run the mod creates an empty {@code listehiding.json} plus a
+ * {@code listehiding.example.json} with commented examples; the active list is normally edited
+ * through the GUI or externally.
  */
 public final class ListEHidingStore
 {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
+
+    private static final String EMPTY_JSON = "{\n  \"entries\": []\n}\n";
+    private static final String EXAMPLE_JSON = """
+        {
+          "_comment": "JEH ListEHiding examples. Entries are ignored while \\"enabled\\" is false; the mod uses config/jeh/listehiding.json (auto-created empty on first run).",
+          "entries": [
+            { "kind": "ingredient", "typeUid": "minecraft:item_stack", "uid": "minecraft:stone", "enabled": false, "note": "example: hide an item", "priority": 0 },
+            { "kind": "tag", "tag": "minecraft:logs", "enabled": false, "note": "example: hide a tag" },
+            { "kind": "recipe", "recipeType": "minecraft:crafting", "recipeId": "minecraft:stick", "enabled": false, "note": "example: hide a recipe" },
+            { "kind": "recipe_category", "recipeType": "minecraft:smithing", "enabled": false, "note": "example: hide a recipe category" },
+            { "kind": "pattern", "scope": "ingredient|minecraft:item_stack", "pattern": "minecraft:*_ore", "mode": "glob", "enabled": false, "note": "example: hide by wildcard" }
+          ]
+        }
+        """;
 
     private ListEHidingStore()
     {
@@ -33,6 +49,33 @@ public final class ListEHidingStore
     public static Path file()
     {
         return FMLPaths.CONFIGDIR.get().resolve("jeh").resolve("listehiding.json");
+    }
+
+    /** Writes an empty {@code listehiding.json} and a {@code listehiding.example.json} if absent. */
+    public static synchronized void ensureDefaults()
+    {
+        try
+        {
+            Path file = file();
+            Path dir = file.getParent();
+            if (dir != null)
+            {
+                Files.createDirectories(dir);
+            }
+            if (!Files.exists(file))
+            {
+                Files.writeString(file, EMPTY_JSON, StandardCharsets.UTF_8);
+            }
+            Path example = dir == null ? null : dir.resolve("listehiding.example.json");
+            if (example != null && !Files.exists(example))
+            {
+                Files.writeString(example, EXAMPLE_JSON, StandardCharsets.UTF_8);
+            }
+        }
+        catch (Throwable t)
+        {
+            JustEnoughHiding.LOGGER.warn("[JEH] failed to create default listehiding files", t);
+        }
     }
 
     public static List<ListEHidingEntry> load()
