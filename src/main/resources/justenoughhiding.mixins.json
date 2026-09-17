@@ -9,6 +9,8 @@
     "jei.RevealMixin",
     "jei.ClientToggleStateMixin",
     "emi.EmiStackListRevealMixin",
+    "emi.EmiStackListBakeRevealMixin",
+    "emi.EmiRecipesBakeRevealMixin",
     "emi.EmiHiddenRevealMixin",
     "jei.intent.PluginCallerContextMixin",
     "jei.intent.IngredientManagerIntentMixin",

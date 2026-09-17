@@ -9,6 +9,9 @@ package com.wdlpiaoyi.justenoughhiding.client.jehide;
  * predicates are re-applied on every EMI reload. Phase 2 will register predicates that consult
  * the live list plus recorded hide-intents, and trigger {@code Minecraft.reloadResourcePacks()}
  * when the list changes. Nothing is implemented yet.
+ * <p>
+ * Note: reveal (see {@code mixin/emi/*}) clears {@code EmiStackList/EmiRecipes.invalidators}
+ * before EMI bakes, so JEH's own hide must not rely on those lists (or must be distinguishable).
  */
 public final class EmiHide
 {
