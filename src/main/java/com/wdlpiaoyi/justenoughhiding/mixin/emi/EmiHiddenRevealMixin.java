@@ -1,6 +1,5 @@
 package com.wdlpiaoyi.justenoughhiding.mixin.emi;
 
-import com.wdlpiaoyi.justenoughhiding.client.jehide.EmiHide;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
 import dev.emi.emi.api.stack.EmiIngredient;
 import org.spongepowered.asm.mixin.Mixin;
@@ -21,7 +20,7 @@ public class EmiHiddenRevealMixin
     @Inject(method = "isHidden", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
     private static void jeh$revealHidden(EmiIngredient ingredient, CallbackInfoReturnable<Boolean> cir)
     {
-        if (!JehConfig.revealEnabled() || EmiHide.isHidden(ingredient))
+        if (!JehConfig.revealEnabled() || EmiRevealSupport.isHidden(ingredient))
         {
             return;
         }
@@ -31,7 +30,7 @@ public class EmiHiddenRevealMixin
     @Inject(method = "isDisabled", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
     private static void jeh$revealDisabled(EmiIngredient ingredient, CallbackInfoReturnable<Boolean> cir)
     {
-        if (!JehConfig.revealEnabled() || EmiHide.isHidden(ingredient))
+        if (!JehConfig.revealEnabled() || EmiRevealSupport.isHidden(ingredient))
         {
             return;
         }

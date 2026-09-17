@@ -20,11 +20,17 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 /**
- * Reveal support for EMI: predicates registered through {@code EmiRegistry.removeEmiStacks(...)}
- * are stored in {@code EmiStackList.invalidators} and applied destructively in {@code bake()}.
- * Dropping them before the bake makes those stacks reappear (mirrors JEH's JEI reveal of removed
- * ingredients). Also re-adds item stacks that are missing from the index (e.g. because the
- * {@code emi_accelerator} cache or a plugin dropped them). Controlled by {@code [reveal] enabled}.
+ * EMI stack index integration:
+ * <ul>
+ *   <li>Reveal: predicates registered through {@code EmiRegistry.removeEmiStacks(...)} are stored
+ *       in {@code EmiStackList.invalidators} and applied destructively in {@code bake()}. Dropping
+ *       them before the bake makes those stacks reappear.</li>
+ *   <li>Re-adds item stacks that are missing from the index (e.g. because the {@code
+ *       emi_accelerator} cache or a plugin dropped them).</li>
+ *   <li>JEHide: re-adds JEH's own hide predicate after the clear, so JEH's list takes precedence
+ *       over reveal.</li>
+ * </ul>
+ * Both behaviours are controlled by {@code [reveal] enabled} and {@code [jehide] enabled}.
  */
 @Pseudo
 @Mixin(targets = "dev.emi.emi.registry.EmiStackList", remap = false)
@@ -36,6 +42,8 @@ public class EmiStackListBakeRevealMixin
     @Shadow
     public static List<EmiStack> stacks;
 
+    private static final Predicate<EmiStack> JEH_HIDE = EmiRevealSupport::isHidden;
+
     private static boolean jeh$loggedActive;
 
     @Inject(method = "bake", at = @At("HEAD"), remap = false, require = 0)
@@ -46,17 +54,21 @@ public class EmiStackListBakeRevealMixin
             jeh$loggedActive = true;
             JustEnoughHiding.LOGGER.info("[JEH] EMI reveal mixin active");
         }
-        if (!JehConfig.revealEnabled())
+        if (JehConfig.revealEnabled())
         {
-            return;
+            int count = invalidators.size();
+            if (count > 0)
+            {
+                invalidators.clear();
+                JustEnoughHiding.LOGGER.info("[JEH] reveal: cleared {} EMI stack invalidators", count);
+            }
+            jeh$addMissingItemStacks();
         }
-        int count = invalidators.size();
-        if (count > 0)
+        invalidators.remove(JEH_HIDE);
+        if (JehConfig.jehideEnabled())
         {
-            invalidators.clear();
-            JustEnoughHiding.LOGGER.info("[JEH] reveal: cleared {} EMI stack invalidators", count);
+            invalidators.add(JEH_HIDE);
         }
-        jeh$addMissingItemStacks();
     }
 
     /** Re-add default item stacks that are absent from the index, so reveal works with cached lists. */

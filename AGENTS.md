@@ -50,10 +50,13 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
   (`integration/kubejs/`). Script changes are in-memory only until `JEH.save()`.
 - EMI: `compileOnly`; discovered via `@dev.emi.emi.api.EmiEntrypoint`
   (`integration/emi/JehEmiPlugin`). `Adapters.active()` picks the highest `priority()`
-  adapter, and EMI (100) outranks JEI (10) because EMI overrides the overlay. Hiding in EMI is
-  registration-time only (`EmiRegistry.removeEmiStacks/removeRecipes`), unlike JEI; `EmiHide`
-  is a phase-2 placeholder. Reveal for EMI lives in `mixin/emi/EmiStackListRevealMixin` and
-  `mixin/emi/EmiHiddenRevealMixin` (force-hidden checks to false unless `EmiHide.isHidden`).
+  adapter, and EMI (100) outranks JEI (10) because EMI overrides the overlay. EMI has no
+  runtime hide API: JEH expresses hiding as a predicate in `EmiStackList/EmiRecipes.invalidators`,
+  re-added at `bake()` HEAD by `mixin/emi/EmiStackListBakeRevealMixin` /
+  `EmiRecipesBakeRevealMixin` after clear. `client/jehide/EmiHide` computes the hidden id sets
+  (list + hide-intents) and is EMI-type-free; `mixin/emi/EmiRevealSupport` bridges EMI
+  `EmiStack`/`EmiRecipe` to it. Reveal lives in `mixin/emi/EmiStackListRevealMixin` and
+  `mixin/emi/EmiHiddenRevealMixin` (force-hidden checks to false unless JEH hides it).
 
 ## JEI gotchas
 - JEI caches its ingredient list; `hideIngredients`/`unhideIngredients` alone do not refresh it.

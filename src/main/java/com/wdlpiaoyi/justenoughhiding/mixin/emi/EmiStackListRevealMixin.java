@@ -1,6 +1,5 @@
 package com.wdlpiaoyi.justenoughhiding.mixin.emi;
 
-import com.wdlpiaoyi.justenoughhiding.client.jehide.EmiHide;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -20,7 +19,7 @@ public class EmiStackListRevealMixin
     @Inject(method = "isHiddenFromRecipeViewers", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
     private static void jeh$reveal(Object stack, CallbackInfoReturnable<Boolean> cir)
     {
-        if (!JehConfig.revealEnabled() || EmiHide.isHidden(stack))
+        if (!JehConfig.revealEnabled() || EmiRevealSupport.isHidden(stack))
         {
             return;
         }
