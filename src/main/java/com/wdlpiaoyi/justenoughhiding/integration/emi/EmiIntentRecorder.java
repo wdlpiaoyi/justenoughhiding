@@ -12,6 +12,7 @@ import com.wdlpiaoyi.justenoughhiding.intent.IntentSource;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentSuppressor;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import com.wdlpiaoyi.justenoughhiding.intent.source.ModSourceResolver;
+import dev.emi.emi.api.recipe.EmiRecipe;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.api.stack.serializer.EmiIngredientSerializer;
@@ -36,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
@@ -61,6 +63,13 @@ public final class EmiIntentRecorder
     private record PackFilter(Predicate<String> predicate, IntentSource source)
     {
     }
+
+    private record RecipePredicate(Predicate<EmiRecipe> predicate, IntentSource source)
+    {
+    }
+
+    /** {@code removeRecipes} predicates captured at register time, evaluated at the next bake. */
+    private static final List<RecipePredicate> CAPTURED_RECIPES = new CopyOnWriteArrayList<>();
 
     private EmiIntentRecorder()
     {
@@ -155,6 +164,239 @@ public final class EmiIntentRecorder
             {
                 IntentRegistry.remove(target, resolved.id());
             }
+        }
+    }
+
+    /**
+     * Captures a plugin {@code removeRecipes} predicate at register time. It is evaluated later,
+     * at the next recipe bake over the full recipe list (where the recipes actually exist).
+     */
+    public static void captureRemovedRecipes(Predicate<EmiRecipe> predicate)
+    {
+        if (disabled() || predicate == null)
+        {
+            return;
+        }
+        IntentSource source = currentSource();
+        if (isSelf(source))
+        {
+            return;
+        }
+        CAPTURED_RECIPES.add(new RecipePredicate(predicate, source));
+    }
+
+    /** Cleared at the start of every EMI reload, before plugins re-register. */
+    public static void clearCapturedRecipes()
+    {
+        CAPTURED_RECIPES.clear();
+    }
+
+    /**
+     * Records recipe hiding applied by the {@code emi:recipe_filters} data-pack files (attributed
+     * to the providing pack) and by plugin {@code removeRecipes} predicates (attributed to the
+     * plugin's mod). Called after EMI baked its recipes, over the full recipe list.
+     */
+    public static void scanHiddenRecipes(List<EmiRecipe> allRecipes)
+    {
+        if (disabled() || allRecipes == null || allRecipes.isEmpty())
+        {
+            return;
+        }
+        List<RecipePredicate> predicates = new ArrayList<>(CAPTURED_RECIPES);
+        collectPackRecipeFilters(predicates);
+        if (predicates.isEmpty())
+        {
+            return;
+        }
+        for (EmiRecipe recipe : allRecipes)
+        {
+            if (recipe == null)
+            {
+                continue;
+            }
+            IntentTarget target = recipeTarget(recipe);
+            if (target == null)
+            {
+                continue;
+            }
+            for (RecipePredicate entry : predicates)
+            {
+                boolean matched;
+                try
+                {
+                    matched = entry.predicate().test(recipe);
+                }
+                catch (Throwable t)
+                {
+                    continue;
+                }
+                if (matched && !IntentRegistry.contains(target, IntentKind.RECIPE_HIDDEN, entry.source().id()))
+                {
+                    IntentRegistry.record(target, IntentKind.RECIPE_HIDDEN, entry.source());
+                }
+            }
+        }
+    }
+
+    private static void collectPackRecipeFilters(List<RecipePredicate> out)
+    {
+        ResourceManager manager;
+        Map<ResourceLocation, List<Resource>> resources;
+        try
+        {
+            Minecraft minecraft = Minecraft.getInstance();
+            if (minecraft == null || (manager = minecraft.getResourceManager()) == null)
+            {
+                return;
+            }
+            resources = manager.listResourceStacks("recipe/filters", path -> path.getPath().endsWith(".json"));
+        }
+        catch (Throwable t)
+        {
+            return;
+        }
+        if (resources == null)
+        {
+            return;
+        }
+        for (Map.Entry<ResourceLocation, List<Resource>> entry : resources.entrySet())
+        {
+            ResourceLocation location = entry.getKey();
+            if (location == null || !"emi".equals(location.getNamespace()) || entry.getValue() == null)
+            {
+                continue;
+            }
+            for (Resource resource : entry.getValue())
+            {
+                if (resource == null)
+                {
+                    continue;
+                }
+                IntentSource source = packSource(resource);
+                try (BufferedReader reader = resource.openAsReader())
+                {
+                    JsonElement root = JsonParser.parseReader(reader);
+                    if (root == null || !root.isJsonObject())
+                    {
+                        continue;
+                    }
+                    JsonElement filters = root.getAsJsonObject().get("filters");
+                    if (filters == null || !filters.isJsonArray())
+                    {
+                        continue;
+                    }
+                    for (JsonElement element : filters.getAsJsonArray())
+                    {
+                        if (element == null || !element.isJsonObject())
+                        {
+                            continue;
+                        }
+                        Predicate<EmiRecipe> predicate = recipeFilter(element.getAsJsonObject());
+                        if (predicate != null)
+                        {
+                            out.add(new RecipePredicate(predicate, source));
+                        }
+                    }
+                }
+                catch (Throwable ignored)
+                {
+                }
+            }
+        }
+    }
+
+    /** Builds a predicate for one {@code recipe_filters} entry ({@code id} and/or {@code category}). */
+    private static Predicate<EmiRecipe> recipeFilter(JsonObject object)
+    {
+        List<Predicate<EmiRecipe>> parts = new ArrayList<>();
+        if (object.has("id") && object.get("id").isJsonPrimitive())
+        {
+            Predicate<String> idPredicate = filterPredicate(object.get("id").getAsString());
+            if (idPredicate != null)
+            {
+                parts.add(recipe ->
+                {
+                    String id = recipeId(recipe);
+                    return id != null && idPredicate.test(id);
+                });
+            }
+        }
+        if (object.has("category") && object.get("category").isJsonPrimitive())
+        {
+            Predicate<String> categoryPredicate = filterPredicate(object.get("category").getAsString());
+            if (categoryPredicate != null)
+            {
+                parts.add(recipe ->
+                {
+                    String category = recipeCategoryId(recipe);
+                    return category != null && categoryPredicate.test(category);
+                });
+            }
+        }
+        if (parts.isEmpty())
+        {
+            return null;
+        }
+        if (parts.size() == 1)
+        {
+            return parts.get(0);
+        }
+        return recipe ->
+        {
+            for (Predicate<EmiRecipe> part : parts)
+            {
+                if (!part.test(recipe))
+                {
+                    return false;
+                }
+            }
+            return true;
+        };
+    }
+
+    private static IntentTarget recipeTarget(EmiRecipe recipe)
+    {
+        try
+        {
+            String id = recipeId(recipe);
+            String category = recipeCategoryId(recipe);
+            if (id == null || category == null)
+            {
+                return null;
+            }
+            ResourceLocation type = ResourceLocation.tryParse(category);
+            return type == null ? null : IntentTarget.of(type, id);
+        }
+        catch (Throwable t)
+        {
+            return null;
+        }
+    }
+
+    private static String recipeId(EmiRecipe recipe)
+    {
+        try
+        {
+            ResourceLocation id = recipe.getId();
+            return id == null ? null : id.toString();
+        }
+        catch (Throwable t)
+        {
+            return null;
+        }
+    }
+
+    private static String recipeCategoryId(EmiRecipe recipe)
+    {
+        try
+        {
+            return recipe.getCategory() == null || recipe.getCategory().getId() == null
+                ? null
+                : recipe.getCategory().getId().toString();
+        }
+        catch (Throwable t)
+        {
+            return null;
         }
     }
 
