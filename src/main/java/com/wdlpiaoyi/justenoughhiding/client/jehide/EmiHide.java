@@ -9,6 +9,7 @@ import com.wdlpiaoyi.justenoughhiding.intent.IntentSuppressor;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentTarget;
 import com.wdlpiaoyi.justenoughhiding.listehiding.ListEHiding;
 import com.wdlpiaoyi.justenoughhiding.listehiding.ListEHidingEntry;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
@@ -19,6 +20,7 @@ import net.minecraftforge.registries.ForgeRegistries;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -53,15 +55,55 @@ public final class EmiHide
     private static volatile boolean lastEnabled = true;
     private static volatile boolean lastApplyIntents = true;
     private static boolean listenerRegistered;
+    private static volatile List<String> lastSelectedPacks;
+
+    static
+    {
+        JehReloadHooks.add(EmiHide::onClientReload);
+    }
 
     private EmiHide()
     {
     }
 
     /**
-     * Called by the EMI plugin on every reload; the snapshot is rebuilt lazily so it always
-     * reflects the current list and intents.
+     * Called after every client resource reload. Adding/removing a resource pack does not make EMI
+     * re-bake on its own, so if the selected packs changed we schedule an EMI reload on the next
+     * client tick (making pack changes take effect without a manual {@code /reload}).
      */
+    private static void onClientReload()
+    {
+        invalidate();
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null)
+        {
+            return;
+        }
+        boolean changed = false;
+        try
+        {
+            Collection<String> selected = minecraft.getResourcePackRepository().getSelectedIds();
+            List<String> snapshot = selected == null ? List.of() : List.copyOf(selected);
+            changed = lastSelectedPacks != null && !lastSelectedPacks.equals(snapshot);
+            lastSelectedPacks = snapshot;
+        }
+        catch (Throwable ignored)
+        {
+        }
+        if (changed)
+        {
+            try
+            {
+                minecraft.execute(EmiHide::reapply);
+            }
+            catch (Throwable ignored)
+            {
+            }
+        }
+    }
+
+    /** Called by the EMI plugin on every reload; the snapshot is rebuilt lazily so it always
+     * reflects the current list and intents. */
     public static void apply(Object registry)
     {
         invalidate();
