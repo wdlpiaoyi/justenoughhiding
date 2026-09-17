@@ -60,7 +60,10 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
   EMI-native intents (plugin `removeEmiStacks`/`removeRecipes` predicates, edit-mode
   `EmiHidden.setVisibility`, and `assets/emi/index/stacks` + `recipe/filters` data-pack hides
   attributed to the providing pack) are recorded by `mixin/emi/EmiRegistryIntentMixin` /
-  `EmiHiddenIntentMixin` through `integration/emi/EmiIntentRecorder`. Because JEH ships an EMI plugin, EMI's
+  `EmiHiddenIntentMixin` through `integration/emi/EmiIntentRecorder`. Its data-pack/registry scan
+  is cached per `(ResourceManager, Level)`; `client/JehClientReloadEvents` clears it on every
+  resource reload via `client/jehide/JehReloadHooks` (the manager instance is `final`, so identity
+  alone is not enough). Because JEH ships an EMI plugin, EMI's
   `jei.PluginCallerMixin` treats it as an EMI-handled mod and skips its JEI plugin callbacks;
   `mixin/jei/intent/PluginCallerContextMixin` re-invokes JEH's own plugin for the runtime phases so
   the JEI-side reveal/scanner still run under EMI.
