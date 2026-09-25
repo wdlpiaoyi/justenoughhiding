@@ -5,6 +5,8 @@ import dev.emi.emi.api.recipe.EmiRecipe;
 import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
+import dev.emi.emi.config.EmiConfig;
+import dev.emi.emi.config.IndexSource;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.List;
@@ -20,6 +22,23 @@ public final class EmiRevealSupport
 {
     private EmiRevealSupport()
     {
+    }
+
+    /**
+     * True when EMI's {@code general.index-source} already pulls stacks from the registries
+     * ({@code REGISTERED} / {@code CREATIVE_PLUS_REGISTERED}), so EMI's index already contains the
+     * items JEH would otherwise re-add. In that case JEH must not add them a second time.
+     */
+    public static boolean indexIncludesRegistry()
+    {
+        try
+        {
+            return EmiConfig.indexSource != IndexSource.CREATIVE;
+        }
+        catch (Throwable t)
+        {
+            return false;
+        }
     }
 
     public static boolean isHidden(Object ingredient)

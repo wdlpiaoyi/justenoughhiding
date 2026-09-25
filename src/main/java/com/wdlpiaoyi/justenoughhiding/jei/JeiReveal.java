@@ -1,6 +1,7 @@
 package com.wdlpiaoyi.justenoughhiding.jei;
 
 import com.wdlpiaoyi.justenoughhiding.JustEnoughHiding;
+import com.wdlpiaoyi.justenoughhiding.client.viewer.jei.JeiNativeOptions;
 import com.wdlpiaoyi.justenoughhiding.config.JehConfig;
 import com.wdlpiaoyi.justenoughhiding.intent.IngredientKey;
 import com.wdlpiaoyi.justenoughhiding.intent.IntentKind;
@@ -48,9 +49,26 @@ public final class JeiReveal
         this.runtime = jeiRuntime;
         jeiRuntime.getIngredientManager().registerIngredientListener(new RemovalCollector());
         beginTicking();
-        if (JehConfig.revealEnabled())
+        if (!JehConfig.revealEnabled() && !JehConfig.intentRecordingEnabled())
         {
-            revealMissing(jeiRuntime);
+            return;
+        }
+
+        // Scan and record independently of whether we re-add: the recorded ABSENT_FROM_JEI intents
+        // must not depend on the reveal / native-option decision.
+        List<ItemStack> absent = scanMissing(jeiRuntime.getIngredientManager());
+        if (absent.isEmpty())
+        {
+            return;
+        }
+
+        // JEI's own [cheating] showHiddenIngredients already adds the registry items that are absent
+        // from the creative inventory, so re-adding them here would be duplicated work.
+        if (JehConfig.revealEnabled() && !JeiNativeOptions.showHiddenIngredients())
+        {
+            JeiIntentRecorder.runSuppressed(() ->
+                jeiRuntime.getIngredientManager().addIngredientsAtRuntime(VanillaTypes.ITEM_STACK, absent));
+            JustEnoughHiding.LOGGER.info("[JEH] reveal: added {} item stacks that JEI was missing", absent.size());
         }
     }
 
@@ -152,9 +170,13 @@ public final class JeiReveal
         }
     }
 
-    private static void revealMissing(IJeiRuntime jeiRuntime)
+    /**
+     * Collects the item stacks that are missing from JEI's list, recording {@code ABSENT_FROM_JEI}
+     * for those that exist on the server. Always runs (subject to {@code intentRecording}) so the
+     * recorded intents are independent of whether reveal re-adds them; the caller decides the add.
+     */
+    private static List<ItemStack> scanMissing(IIngredientManager manager)
     {
-        IIngredientManager manager = jeiRuntime.getIngredientManager();
         IIngredientHelper<ItemStack> helper = manager.getIngredientHelper(VanillaTypes.ITEM_STACK);
         String typeUid = VanillaTypes.ITEM_STACK.getUid();
 
@@ -176,6 +198,11 @@ public final class JeiReveal
                 continue;
             }
             absent.add(stack);
+
+            if (!JehConfig.intentRecordingEnabled())
+            {
+                continue;
+            }
 
             boolean onServer;
             try
@@ -203,11 +230,6 @@ public final class JeiReveal
             {
             }
         }
-
-        if (!absent.isEmpty())
-        {
-            JeiIntentRecorder.runSuppressed(() -> manager.addIngredientsAtRuntime(VanillaTypes.ITEM_STACK, absent));
-            JustEnoughHiding.LOGGER.info("[JEH] reveal: added {} item stacks that JEI was missing", absent.size());
-        }
+        return absent;
     }
 }

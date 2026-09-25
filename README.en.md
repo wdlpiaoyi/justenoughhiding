@@ -17,6 +17,14 @@ reveals what was hidden, and lets you hide content from the recipe viewer with y
 
 - **Reveal**: on viewer startup, show ingredients hidden by tags / edit mode / the blacklist again;
   restore ingredients that were removed or missing; unhide hidden recipes and recipe categories.
+  - Native options: JEH checks JEI's `[cheating] showHiddenIngredients` and EMI's
+    `general.index-source`. When they already cover "add the creative-inventory-missing entries to
+    the viewer", JEH skips its own equivalent step to avoid duplication; every other reveal
+    (visibility, runtime removals, recipes/categories, EMI invalidators and data-pack overrides)
+    is unaffected.
+  - `ABSENT_FROM_JEI` ("in the registry but not in JEI's list") recording is decoupled from the
+    re-add: as long as `[intentRecording]` is on it is recorded, even when reveal is off or the
+    native option already covers it.
 - **Intent recording**: record hide/show actions performed by other mods, the viewer itself, the
   server, etc., with a viewer UI (source, count, time, ...).
 - **ListEHiding**: your own hide list; JEHide hides matching content from the viewer. Supports
@@ -33,7 +41,8 @@ reveals what was hidden, and lets you hide content from the recipe viewer with y
 - **Reveal**: on EMI startup/reload, content hidden by tags (`c:hidden_from_recipe_viewers`), plugin
   removals (`removeEmiStacks`/`removeRecipes`), EMI edit mode, and the data-pack files
   `assets/emi/index/stacks` and `assets/emi/recipe/filters` is revealed (controlled by
-  `[reveal] enabled`).
+  `[reveal] enabled`). When EMI's `general.index-source` already includes the registries
+  (`registered` / `creative-plus-registered`), JEH skips its own re-add.
 - **Hide**: the `[jehide]` list + intents apply as EMI predicates at bake time, taking precedence
   over reveal.
 - **Recording**: EMI plugin removals (source = the calling mod), EMI edit mode (source

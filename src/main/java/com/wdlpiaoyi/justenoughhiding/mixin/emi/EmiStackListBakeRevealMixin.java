@@ -31,7 +31,8 @@ import java.util.function.Predicate;
  *       in {@code EmiStackList.invalidators} and applied destructively in {@code bake()}. Dropping
  *       them before the bake makes those stacks reappear.</li>
  *   <li>Re-adds item stacks that are missing from the index (e.g. because the {@code
- *       emi_accelerator} cache or a plugin dropped them).</li>
+ *       emi_accelerator} cache or a plugin dropped them). Skipped when EMI's {@code
+ *       general.index-source} already includes the registries, to avoid duplicating it.</li>
  *   <li>JEHide: re-adds JEH's own hide predicate after the clear, so JEH's list takes precedence
  *       over reveal.</li>
  * </ul>
@@ -68,7 +69,12 @@ public class EmiStackListBakeRevealMixin
                 invalidators.clear();
                 JustEnoughHiding.LOGGER.info("[JEH] reveal: cleared {} EMI stack invalidators", count);
             }
-            jeh$addMissingItemStacks();
+            // EMI's general.index-source already pulls from the registries when set to
+            // REGISTERED / CREATIVE_PLUS_REGISTERED, so those stacks are not missing.
+            if (!EmiRevealSupport.indexIncludesRegistry())
+            {
+                jeh$addMissingItemStacks();
+            }
         }
         invalidators.remove(JEH_HIDE);
         if (JehConfig.jehideEnabled())

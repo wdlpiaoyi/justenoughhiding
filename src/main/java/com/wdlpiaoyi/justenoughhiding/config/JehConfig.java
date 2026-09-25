@@ -59,6 +59,8 @@ public final class JehConfig
                 "ingredients hidden by tags, edit mode or the blacklist are shown again;",
                 "ingredients removed at runtime are restored (any ingredient type);",
                 "hidden recipes, recipe categories and EMI data-pack hides are revealed.",
+                "When JEI's showHiddenIngredients or EMI's index-source already includes the",
+                "registries, JEH skips its own equivalent re-add to avoid duplicating it.",
                 "Toggling this at runtime does not undo reveals that were already applied."
             )
             .define("enabled", true);

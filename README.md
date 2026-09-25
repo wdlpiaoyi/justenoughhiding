@@ -11,6 +11,8 @@
 ## 功能
 
 - **Reveal（揭示）**：JEI 启动时，把被标签 / JEI 编辑模式 / 黑名单隐藏的 ingredient 重新显示；把被移除或缺失的 ingredient 补回；把被隐藏的配方与配方类别取消隐藏。
+  - 与原生开关的关系：JEH 会检测 JEI 的 `[cheating] showHiddenIngredients` 与 EMI 的 `general.index-source`。当它们已经覆盖「把创造栏缺失项补进 viewer」时，JEH 跳过自己那一步，避免重复；其余揭示（可见性、运行时移除、配方/类别、EMI invalidators 与数据包覆盖）不受影响。
+  - `ABSENT_FROM_JEI`（「注册表里有、JEI 列表里没有」）的记录与「是否补齐」解耦：只要开启 `[intentRecording]` 就会记录，即使 reveal 关闭或原生开关已覆盖。
 - **Intent 记录**：记录其它模组、JEI 自身、服务端等对 JEI 内容的隐藏 / 显示操作，并提供查看界面（含来源、次数、时间等）。
 - **ListEHiding（隐藏列表）**：你自己维护的一份列表，JEHide 会按它把匹配内容从 JEI 中隐藏。支持批量选择 / 开关 / 删除。
 - **类型与匹配**：物品、流体、化学物等所有 JEI ingredient 类型；配方；配方类别；标签；以及通配符 / 正则。
@@ -19,7 +21,7 @@
 ## EMI 适配
 
 - **界面/图标**：EMI 作为 viewer 时，intent 查看器与隐藏列表使用 EMI 的索引与图标。JEI 生成的条目（type uid 拼写不同）也能正常显示图标。
-- **揭示**：EMI 启动/重载时，被标签（`c:hidden_from_recipe_viewers`）、插件移除（`removeEmiStacks`/`removeRecipes`）、EMI 编辑模式、以及数据包 `assets/emi/index/stacks` 与 `assets/emi/recipe/filters` 隐藏的内容都会被揭示（受 `[reveal] enabled` 控制）。
+- **揭示**：EMI 启动/重载时，被标签（`c:hidden_from_recipe_viewers`）、插件移除（`removeEmiStacks`/`removeRecipes`）、EMI 编辑模式、以及数据包 `assets/emi/index/stacks` 与 `assets/emi/recipe/filters` 隐藏的内容都会被揭示（受 `[reveal] enabled` 控制）。当 EMI 的 `general.index-source` 已包含注册表（`registered` / `creative-plus-registered`）时，JEH 跳过重复补齐。
 - **隐藏**：`[jehide]` 的列表 + intent 以 EMI 谓词形式在 bake 时生效，优先于揭示。
 - **记录**：EMI 插件移除（来源=调用 mod）、EMI 编辑模式（来源 `EMI edit mode`）、`emi:index_stacks` / `emi:recipe_filters` 数据（来源=提供该文件的**资源包**）。
 - **测试/编辑 EMI 数据**：这些文件是**客户端资源** `assets/emi/...`。改完后请用 **F3+T**（重载资源）或切换资源包使其生效——`/reload` 只重载服务端数据（tags/recipes），不会重载 `assets/`。
