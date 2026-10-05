@@ -13,6 +13,11 @@ reveals what was hidden, and lets you hide content from the recipe viewer with y
 - Optional integration: [KubeJS](https://kubejs.com/) (read/write the hide list from scripts)
 - License: MIT
 
+> **Note**: if all you want is to show every item/recipe, the viewer's own options are simpler —
+> enable JEI's `[cheating] showHiddenIngredients`, or set EMI's `general.index-source` to
+> `registered` / `creative-plus-registered`. JEH's value is *recording who hid what* and managing
+> hides from one list.
+
 ## Features
 
 - **Reveal**: on viewer startup, show ingredients hidden by tags / edit mode / the blacklist again;

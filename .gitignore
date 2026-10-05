@@ -23,6 +23,9 @@ run
 run-data
 *.log
 
+# local environment notes (machine-specific paths; never commit)
+环境提示.md
+
 # data generator cache
 src/generated/resources/.cache/
 

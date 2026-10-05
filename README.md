@@ -8,6 +8,8 @@
 - 可选联动：[KubeJS](https://kubejs.com/)（用脚本读写隐藏列表）
 - 许可：MIT
 
+> **提示**：如果你只是想把所有物品 / 配方都显示出来，用 recipe viewer 自带的功能更简单——JEI 开启 `[cheating] showHiddenIngredients`，或把 EMI 的 `general.index-source` 设为 `registered` / `creative-plus-registered`。JEH 的价值在于**记录「是谁隐藏了什么」**，并用一份列表统一管理隐藏。
+
 ## 功能
 
 - **Reveal（揭示）**：JEI 启动时，把被标签 / JEI 编辑模式 / 黑名单隐藏的 ingredient 重新显示；把被移除或缺失的 ingredient 补回；把被隐藏的配方与配方类别取消隐藏。
