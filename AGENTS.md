@@ -22,6 +22,22 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
   `git commit -F <file>` (avoids mojibake); stage with `git add -A` first.
 - Reply to the user in Chinese.
 
+## Release (GitHub + CurseForge)
+- Release build: set `mod_version` to the bare version (drop `-dev`), `.\gradlew.bat build`, then
+  `runData`, commit, tag annotated `vX.Y.Z`, push commit + tag.
+- GitHub: `gh release create vX.Y.Z build\libs\<jar> --title vX.Y.Z --notes-file <md>`; notes are
+  bilingual (中文 + English), same shape as v1.0.1/v1.0.2.
+- CurseForge (project id `1700090`) is behind Cloudflare for plain HTTP clients, so CLI uploads are
+  rejected with a "Just a moment..." challenge. Upload from the right-sidebar browser instead:
+  serve `build\libs` from a loopback CORS server, then in-page
+  `POST https://www.curseforge.com/api/projects/1700090/upload-file` with the account token
+  (`X-Api-Token`, from authors.curseforge.com → API Tokens), a `metadata` field and the jar as
+  `file`. Use `gameVersionNames: ["Client","1.20.1","Forge"]`; numeric `gameVersions` are rejected
+  by the metadata schema. A successful upload returns `{"id": <fileId>}`; the file page stays 404
+  until moderation approves it.
+- The `api.curseforge.com` core API needs a different key (from console.curseforge.com) and is not
+  what the account token works with.
+
 ## Architecture (not obvious from filenames)
 - The GUI must stay free of JEI/`ItemStack`. Viewer-specific code lives behind
   `client/viewer/ViewerAdapter` + `Adapters` (JEI impl: `client/viewer/jei/JeiAdapter`);
