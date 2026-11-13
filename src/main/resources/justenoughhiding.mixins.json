@@ -7,7 +7,7 @@
   "refmap": "justenoughhiding.refmap.json",
   "client": [
     "jei.RevealMixin",
-    "jei.ClientToggleStateMixin",
+    "jei.InternalToggleStateMixin",
     "jei.IngredientFilterMixin",
     "emi.EmiStackListRevealMixin",
     "emi.EmiStackListBakeRevealMixin",

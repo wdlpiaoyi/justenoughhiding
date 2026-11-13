@@ -8,8 +8,12 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
 - Smoke test (always run after a build): `.\gradlew.bat runData`
 - Skip optional deps for local runs: `-PnoJei`, `-PnoKubeJS`, `-PnoEmi`
 - No unit tests and no `runClient` flow; testing is manual in the user's pack (see Testing).
-- Needs JDK 17. This machine points Gradle at it through the global
-  `~/.gradle/gradle.properties` (`org.gradle.java.home`).
+- Needs JDK 17, and it is **not** configured globally: there is no
+  `~/.gradle/gradle.properties` override and the `java` on PATH is JDK 25, which Gradle 8.8 rejects
+  with `Unsupported class file major version 69`. Set `JAVA_HOME` for every Gradle command, e.g.
+  `$env:JAVA_HOME='C:\Program Files\Eclipse Adoptium\jdk-17.0.21.9-hotspot'` before
+  `.\gradlew.bat`. (If JDK 25-only builds must work, a repo-level `org.gradle.java.home` is the
+  alternative, but do not write user-global config without asking.)
 
 ## Versioning & commits
 - Bump `mod_version` in `gradle.properties` on **every** change; keep the `-dev` suffix.
@@ -48,7 +52,9 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
 ## Optional integrations
 - JEI: `compileOnly` API + `runtimeOnly` forge jar; `mods.toml` requires `[15.55.0,)`. The forge
   jar is runtime-only, so JEI internal classes (e.g. `IClientToggleState`, `IngredientFilter`) are
-  **not** on the compile classpath — reach them with a mixin or reflection.
+  **not** on the compile classpath — reach them with a mixin or reflection. `jei_version` in
+  `gradle.properties` is pinned to the newest supported release (15.74.0.234) so the flattened
+  constructor bytecode and other new-JEI regressions show up in dev rather than only in user packs.
 - KubeJS: `compileOnly`; discovered via `src/main/resources/kubejs.plugins.txt`
   (`<class> client`). Exposes the global `JEH` binding to `kubejs/client_scripts`
   (`integration/kubejs/`). Script changes are in-memory only until `JEH.save()`.
@@ -85,6 +91,16 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
   the module system. Only called when something actually changed; never force a resource reload.
 - Only `VanillaTypes.ITEM_STACK` and (via Forge) `ForgeTypes.FLUID_STACK` exist; there is no
   energy ingredient type. Enumerate dynamically via `getRegisteredIngredientTypes()`.
+- **Never inject instance handlers into a JEI constructor's `RETURN`/`TAIL`.** JEI ≥ 15.74.0.230
+  compiles constructors in a flattened style that reuses local slot 0 as a scratch slot
+  (`aload_0; dup; dup; ...; new ArrayList; astore_0; putfield`), so a RETURN injection reloads
+  `this` from a slot holding the temp object and the transformed class fails verification
+  (`VerifyError: Bad type on operand stack`). Prefer a static factory / static handler: `ClientToggleState`
+  is captured by `mixin/jei/InternalToggleStateMixin` from
+  `mezz.jei.common.Internal#getClientToggleState()` (identical signature in 15.59 and 15.74);
+  the old constructor-based `ClientToggleStateMixin` crashed JEI 15.74.0.234 this way.
+  `mixin/jei/IngredientFilterMixin` still injects `<init>` RETURN — safe as of 15.74.0.234 (its
+  slot 0 is untouched), but it is the same fragile pattern; switch it to a factory if one appears.
 
 ## Environment gotchas
 - Edit source files with the dedicated file tools. PowerShell `Set-Content` writes ANSI by default
@@ -98,7 +114,9 @@ content, reveals it, and applies the user's own hide list through JEI's visibili
   `IllegalClassLoadError: ... is in a defined mixin package ... cannot be referenced directly`.
 
 ## Testing
-- Build, then `.\gradlew.bat runData` as a smoke test.
+- Build, then `.\gradlew.bat runData` as a smoke test. `runData` is a dedicated-server run: it never
+  loads the `client` mixins, so mixin/`VerifyError` problems cannot be caught there and must be
+  validated in the user's client instance.
 - Deliver temporary test files (test packs, `listehiding.json`, etc.) in `build/libs/` — the same
   folder as the built mod jar.
 - EMI data (`emi:index_stacks`, `recipe/filters`, `aliases`, ...) is loaded as **client resources**
